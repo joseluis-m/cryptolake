@@ -1435,5 +1435,3 @@ En las siguientes fases implementaremos:
 
 2. **Fase 6**: Serving — API REST con FastAPI y dashboard con Streamlit
    para visualizar las métricas del star schema.
-
-Dime cuando estés listo para continuar.
