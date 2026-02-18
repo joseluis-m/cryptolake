@@ -163,13 +163,7 @@ class CoinGeckoExtractor(BaseExtractor):
             timestamp = record.get("timestamp_ms")
             coin = record.get("coin_id")
 
-            if (
-                coin
-                and price is not None
-                and price > 0
-                and timestamp is not None
-                and timestamp > 0
-            ):
+            if coin and price is not None and price > 0 and timestamp is not None and timestamp > 0:
                 valid.append(record)
             else:
                 invalid_count += 1

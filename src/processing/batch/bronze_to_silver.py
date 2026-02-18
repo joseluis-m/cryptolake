@@ -30,9 +30,7 @@ def create_silver_tables(spark: SparkSession):
     """Crea las tablas Silver si no existen."""
     print("\n🏗️  Creando tablas Silver...")
 
-    spark.sql(
-        "CREATE NAMESPACE IF NOT EXISTS cryptolake.silver LOCATION 's3://cryptolake-silver/'"
-    )
+    spark.sql("CREATE NAMESPACE IF NOT EXISTS cryptolake.silver LOCATION 's3://cryptolake-silver/'")
     spark.sql("""
         CREATE TABLE IF NOT EXISTS cryptolake.silver.daily_prices (
             coin_id         STRING      NOT NULL,
@@ -92,9 +90,7 @@ def process_prices(spark: SparkSession):
     # Window function: para cada grupo (coin_id, price_date),
     # ordena por _loaded_at descendente (más reciente primero)
     # y asigna row_number. Nos quedamos solo con row_number = 1.
-    dedup_window = Window.partitionBy("coin_id", "price_date").orderBy(
-        col("_loaded_at").desc()
-    )
+    dedup_window = Window.partitionBy("coin_id", "price_date").orderBy(col("_loaded_at").desc())
 
     deduped_df = (
         typed_df.withColumn("_row_num", row_number().over(dedup_window))
@@ -105,12 +101,8 @@ def process_prices(spark: SparkSession):
     # 4. Filtrar precios inválidos y limpiar nulls
     cleaned_df = (
         deduped_df.filter(col("price_usd") > 0)
-        .withColumn(
-            "market_cap_usd", when(col("market_cap_usd") > 0, col("market_cap_usd"))
-        )
-        .withColumn(
-            "volume_24h_usd", when(col("volume_24h_usd") > 0, col("volume_24h_usd"))
-        )
+        .withColumn("market_cap_usd", when(col("market_cap_usd") > 0, col("market_cap_usd")))
+        .withColumn("volume_24h_usd", when(col("volume_24h_usd") > 0, col("volume_24h_usd")))
         .withColumn("_processed_at", current_timestamp())
         .select(
             "coin_id",

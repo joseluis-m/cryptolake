@@ -81,11 +81,7 @@ class FearGreedExtractor(BaseExtractor):
 
     def validate(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Valida que el valor esté en rango 0-100."""
-        return [
-            r
-            for r in data
-            if 0 <= r.get("value", -1) <= 100 and r.get("timestamp", 0) > 0
-        ]
+        return [r for r in data if 0 <= r.get("value", -1) <= 100 and r.get("timestamp", 0) > 0]
 
 
 if __name__ == "__main__":
@@ -94,9 +90,7 @@ if __name__ == "__main__":
 
     if records:
         print(f"\n📊 Fear & Greed Index - Últimos {len(records)} días:")
-        print(
-            f"   Último valor: {records[0]['value']} ({records[0]['classification']})"
-        )
+        print(f"   Último valor: {records[0]['value']} ({records[0]['classification']})")
 
         # Distribución de sentimiento
         from collections import Counter

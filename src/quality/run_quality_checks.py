@@ -85,8 +85,7 @@ def print_summary(results):
                 icons = {"failed": "❌", "warning": "⚠️", "error": "💥"}
                 short = c.table_name.split(".")[-1]
                 print(
-                    f"     {icons.get(c.status.value, '?')} "
-                    f"{c.check_name} ({short}): {c.message}"
+                    f"     {icons.get(c.status.value, '?')} {c.check_name} ({short}): {c.message}"
                 )
 
     total = len(results)

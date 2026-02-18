@@ -118,9 +118,7 @@ def extract_coingecko(days: int = 90) -> list[dict]:
                 if response.status_code == 429:
                     if attempt < max_retries:
                         wait = 30 * (2**attempt)
-                        print(
-                            f"  ⏳ Rate limited, esperando {wait}s (intento {attempt + 1})..."
-                        )
+                        print(f"  ⏳ Rate limited, esperando {wait}s (intento {attempt + 1})...")
                         time.sleep(wait)
                     else:
                         response.raise_for_status()
@@ -220,9 +218,7 @@ def create_bronze_tables(spark: SparkSession):
     """
     print("\n🏗️  Creando tablas Bronze (si no existen)...")
 
-    spark.sql(
-        "CREATE NAMESPACE IF NOT EXISTS cryptolake.bronze LOCATION 's3://cryptolake-bronze/'"
-    )
+    spark.sql("CREATE NAMESPACE IF NOT EXISTS cryptolake.bronze LOCATION 's3://cryptolake-bronze/'")
     spark.sql("""
         CREATE TABLE IF NOT EXISTS cryptolake.bronze.historical_prices (
             coin_id         STRING      NOT NULL,
@@ -283,9 +279,7 @@ def load_to_bronze(spark: SparkSession):
 
     if price_records:
         # Crear DataFrame con schema explícito
-        prices_df = spark.createDataFrame(
-            price_records, schema=BRONZE_HISTORICAL_SCHEMA
-        )
+        prices_df = spark.createDataFrame(price_records, schema=BRONZE_HISTORICAL_SCHEMA)
 
         # Añadir timestamp de carga (cuándo entró al Lakehouse)
         prices_df = prices_df.withColumn("_loaded_at", current_timestamp())

@@ -298,9 +298,7 @@ if __name__ == "__main__":
     spark = SparkSession.builder.appName("CryptoLake-SilverToGold").getOrCreate()
 
     try:
-        spark.sql(
-            "CREATE NAMESPACE IF NOT EXISTS cryptolake.gold LOCATION 's3://cryptolake-gold/'"
-        )
+        spark.sql("CREATE NAMESPACE IF NOT EXISTS cryptolake.gold LOCATION 's3://cryptolake-gold/'")
 
         build_dim_coins(spark)
         build_dim_dates(spark)

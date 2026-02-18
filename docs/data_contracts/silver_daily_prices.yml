@@ -1,0 +1,52 @@
+# ============================================================
+# Data Contract: silver.daily_prices
+# ============================================================
+contract:
+  name: silver_daily_prices
+  version: "1.0.0"
+  owner: processing-team
+  description: >
+    Precios diarios limpios y deduplicados. Un registro por
+    coin_id + price_date. Actualizado con MERGE INTO.
+
+schema:
+  type: record
+  fields:
+    - name: coin_id
+      type: string
+      required: true
+      description: "ID de la criptomoneda"
+    - name: price_date
+      type: date
+      required: true
+      description: "Fecha del precio (1 fila por día)"
+    - name: price_usd
+      type: double
+      required: true
+      constraints:
+        minimum: 0
+        exclusive_minimum: true
+      description: "Precio > 0 en USD"
+    - name: market_cap_usd
+      type: double
+      required: false
+    - name: volume_24h_usd
+      type: double
+      required: false
+    - name: _processed_at
+      type: timestamp
+      required: true
+
+quality:
+  uniqueness:
+    key: ["coin_id", "price_date"]
+    description: "No puede haber duplicados por coin+fecha"
+  validity:
+    no_future_dates: true
+    positive_prices: true
+  freshness:
+    max_delay: "48 hours"
+
+sla:
+  availability: "99%"
+  update_frequency: "daily"

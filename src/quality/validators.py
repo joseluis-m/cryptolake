@@ -57,9 +57,7 @@ class CheckResult:
     metric_value: Optional[float] = None
     threshold: Optional[float] = None
     message: str = ""
-    checked_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    checked_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict:
         return {
@@ -91,8 +89,7 @@ class BaseValidator:
         icons = {"passed": "✅", "failed": "❌", "warning": "⚠️", "error": "💥"}
         icon = icons.get(result.status.value, "❓")
         logger.info(
-            f"{icon} [{result.layer}] {result.check_name} "
-            f"on {result.table_name}: {result.message}"
+            f"{icon} [{result.layer}] {result.check_name} on {result.table_name}: {result.message}"
         )
 
     def _exists(self, table: str) -> bool:
@@ -107,17 +104,11 @@ class BaseValidator:
 
     def _nulls(self, table: str, col: str) -> int:
         return (
-            self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE {col} IS NULL")
-            .first()
-            .cnt
+            self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE {col} IS NULL").first().cnt
         )
 
     def _distinct(self, table: str, col: str) -> int:
-        return (
-            self.spark.sql(f"SELECT COUNT(DISTINCT {col}) AS cnt FROM {table}")
-            .first()
-            .cnt
-        )
+        return self.spark.sql(f"SELECT COUNT(DISTINCT {col}) AS cnt FROM {table}").first().cnt
 
     def get_summary(self) -> dict:
         total = len(self.results)
@@ -334,9 +325,7 @@ class SilverValidator(BaseValidator):
 
         # Precios positivos
         neg = (
-            self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE price_usd <= 0")
-            .first()
-            .cnt
+            self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE price_usd <= 0").first().cnt
         )
         self._add(
             CheckResult(
@@ -367,9 +356,7 @@ class SilverValidator(BaseValidator):
 
         # No fechas futuras
         future = (
-            self.spark.sql(
-                f"SELECT COUNT(*) AS cnt FROM {table} WHERE price_date > CURRENT_DATE()"
-            )
+            self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE price_date > CURRENT_DATE()")
             .first()
             .cnt
         )

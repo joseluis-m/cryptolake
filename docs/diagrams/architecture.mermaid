@@ -1,0 +1,49 @@
+graph TB
+    subgraph Sources["📡 Data Sources"]
+        BN[Binance WebSocket<br/>Real-time prices]
+        CG[CoinGecko API<br/>Historical data]
+        FG[Alternative.me<br/>Fear & Greed Index]
+    end
+
+    subgraph Ingestion["🔄 Ingestion Layer"]
+        KF[Apache Kafka<br/>Topic: prices.realtime]
+        EX[Python Extractors<br/>Batch: 7-day lookback]
+    end
+
+    subgraph Lakehouse["🏔️ Lakehouse — MinIO + Apache Iceberg"]
+        direction LR
+        BR["🥉 BRONZE<br/>───────────<br/>historical_prices<br/>fear_greed<br/><i>Append-only, raw</i>"]
+        SL["🥈 SILVER<br/>───────────<br/>daily_prices<br/>fear_greed<br/><i>Deduped, typed</i>"]
+        GL["🥇 GOLD<br/>───────────<br/>fact_market_daily<br/>dim_coins<br/>dim_dates<br/><i>Star schema</i>"]
+        BR -->|"Spark Batch<br/>MERGE INTO"| SL
+        SL -->|"dbt run<br/>Window functions"| GL
+    end
+
+    subgraph Orchestration["⏰ Orchestration"]
+        AF[Apache Airflow<br/>DAG: 06:00 UTC daily]
+    end
+
+    subgraph Quality["✅ Quality"]
+        DQ[Custom Validators<br/>Bronze: 8 checks<br/>Silver: 8 checks<br/>Gold: 5 checks]
+    end
+
+    subgraph Serving["🖥️ Serving Layer"]
+        API[FastAPI :8000<br/>/docs /prices /analytics]
+        DB[Streamlit :8501<br/>Charts & KPIs]
+    end
+
+    subgraph CICD["🔧 DevOps"]
+        GH[GitHub Actions<br/>lint → test → build]
+        TF[Terraform<br/>AWS S3 modules]
+    end
+
+    BN --> KF
+    CG --> EX
+    FG --> EX
+    KF --> BR
+    EX --> BR
+    AF -.->|orchestrates| Ingestion
+    AF -.->|orchestrates| Lakehouse
+    AF -.->|orchestrates| Quality
+    GL -->|PyHive / Thrift| API
+    API -->|HTTP| DB

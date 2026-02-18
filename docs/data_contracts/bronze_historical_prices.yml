@@ -1,0 +1,67 @@
+# ============================================================
+# Data Contract: bronze.historical_prices
+# ============================================================
+# Acuerdo entre el productor (extractores Python) y el consumidor
+# (job Spark Bronze → Silver). Si el schema cambia, ambos lados
+# deben acordar y versionar el cambio.
+# ============================================================
+contract:
+  name: bronze_historical_prices
+  version: "1.0.0"
+  owner: ingestion-team
+  description: >
+    Precios históricos de criptomonedas desde CoinGecko API.
+    Datos raw sin transformar, append-only en Iceberg.
+
+schema:
+  type: record
+  fields:
+    - name: coin_id
+      type: string
+      required: true
+      description: "ID de CoinGecko (ej: bitcoin, ethereum)"
+    - name: timestamp_ms
+      type: long
+      required: true
+      description: "Timestamp Unix en milisegundos"
+    - name: price_usd
+      type: double
+      required: true
+      constraints:
+        minimum: 0
+      description: "Precio en USD, siempre positivo"
+    - name: market_cap_usd
+      type: double
+      required: false
+      description: "Market cap en USD (puede ser null)"
+    - name: volume_24h_usd
+      type: double
+      required: false
+      description: "Volumen 24h en USD (puede ser null)"
+    - name: _ingested_at
+      type: string
+      required: true
+      description: "ISO timestamp del momento de extracción"
+    - name: _source
+      type: string
+      required: true
+      description: "Identificador del origen de datos"
+    - name: _loaded_at
+      type: timestamp
+      required: true
+      description: "Timestamp de escritura en Iceberg (Spark)"
+
+quality:
+  freshness:
+    max_delay: "48 hours"
+    description: "Datos no deben tener más de 48h de antigüedad"
+  completeness:
+    required_fields_not_null: ["coin_id", "timestamp_ms", "price_usd"]
+  volume:
+    min_records_per_coin: 100
+    description: "Al menos 100 registros por criptomoneda"
+
+sla:
+  availability: "99%"
+  update_frequency: "daily"
+  support_channel: "#data-engineering"
