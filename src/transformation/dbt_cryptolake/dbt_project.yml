@@ -38,12 +38,12 @@ models:
   cryptolake:
     # staging/ → Vistas SQL (no almacenan datos, siempre frescas)
     staging:
-      +materialized: view
+      +materialized: ephemeral
       +schema: staging
 
     # marts/ → Tablas físicas (star schema para análisis)
     marts:
-      +materialized: table
+      +materialized: view
       +schema: gold
 
 # ============================================================

@@ -45,4 +45,6 @@ RUN pip install --no-cache-dir \
 # dbt en virtualenv aislado (evita conflicto protobuf con Airflow)
 RUN python -m venv /opt/dbt-venv && \
     /opt/dbt-venv/bin/pip install --no-cache-dir \
-    "dbt-spark[PyHive]==1.8.0"
+    "dbt-spark[PyHive]==1.8.0" \
+    "dbt-core==1.8.0" \
+    "protobuf>=4.25.3,<5.0.0"

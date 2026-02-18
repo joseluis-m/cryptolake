@@ -230,6 +230,7 @@ services:
       context: ./docker/airflow
       dockerfile: Dockerfile
     container_name: cryptolake-airflow-webserver
+    user: root
     ports:
       - "8083:8080"
     environment:
@@ -260,6 +261,7 @@ services:
       context: ./docker/airflow
       dockerfile: Dockerfile
     container_name: cryptolake-airflow-scheduler
+    user: root
     environment:
       <<: *common-env
       AIRFLOW__CORE__EXECUTOR: LocalExecutor

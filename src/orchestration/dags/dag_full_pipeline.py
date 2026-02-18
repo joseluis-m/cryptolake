@@ -161,10 +161,12 @@ with DAG(
     # de producción (host: spark-thrift en vez de localhost).
     # ════════════════════════════════════════════════════════════
     with TaskGroup("gold_transformation", tooltip="Modelado dimensional con dbt") as gold_group:
-
+        
         dbt_run = BashOperator(
             task_id="dbt_run",
             bash_command=(
+                "export PYTHONNOUSERSITE=1 && "
+                "export PYTHONPATH=/opt/dbt-venv/lib/python3.11/site-packages && "
                 "cd /opt/airflow/src/transformation/dbt_cryptolake && "
                 "/opt/dbt-venv/bin/dbt run --profiles-dir . --target prod"
             ),
@@ -173,6 +175,8 @@ with DAG(
         dbt_test = BashOperator(
             task_id="dbt_test",
             bash_command=(
+                "export PYTHONNOUSERSITE=1 && "
+                "export PYTHONPATH=/opt/dbt-venv/lib/python3.11/site-packages && "
                 "cd /opt/airflow/src/transformation/dbt_cryptolake && "
                 "/opt/dbt-venv/bin/dbt test --profiles-dir . --target prod"
             ),
