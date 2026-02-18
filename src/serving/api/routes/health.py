@@ -1,4 +1,5 @@
 """Health check endpoint."""
+
 from fastapi import APIRouter
 
 from src.serving.api.database import execute_query

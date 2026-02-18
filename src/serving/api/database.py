@@ -4,10 +4,10 @@ Conexión al Spark Thrift Server via PyHive.
 Reutiliza la misma conexión que dbt usa (thrift en puerto 10000).
 La API ejecuta queries SQL sobre las tablas Gold del star schema.
 """
+
 import os
 
 from pyhive import hive
-
 
 # Dentro de Docker: spark-thrift. Desde Mac: localhost
 THRIFT_HOST = os.getenv("THRIFT_HOST", "spark-thrift")

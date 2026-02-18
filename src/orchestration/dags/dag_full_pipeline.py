@@ -11,6 +11,7 @@ Pipeline completo:
 
 Schedule: Diario a las 06:00 UTC
 """
+
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -35,8 +36,7 @@ DBT_ENV = (
     "export PYTHONPATH=/opt/dbt-venv/lib/python3.11/site-packages && "
 )
 DBT_CMD = (
-    DBT_ENV +
-    "cd /opt/airflow/src/transformation/dbt_cryptolake && "
+    DBT_ENV + "cd /opt/airflow/src/transformation/dbt_cryptolake && "
     "/opt/dbt-venv/bin/dbt"
 )
 
@@ -50,7 +50,6 @@ with DAG(
     tags=["cryptolake", "production"],
     doc_md=__doc__,
 ) as dag:
-
     # ── INIT ────────────────────────────────────────────────
     init_namespaces = BashOperator(
         task_id="init_namespaces",
@@ -62,24 +61,26 @@ with DAG(
     )
 
     # ── INGESTA ─────────────────────────────────────────────
-    with TaskGroup("ingestion", tooltip="Descarga datos de APIs externas") as ingestion_group:
+    with TaskGroup(
+        "ingestion", tooltip="Descarga datos de APIs externas"
+    ) as ingestion_group:
         extract_coingecko = BashOperator(
             task_id="extract_coingecko",
             bash_command=(
-                "cd /opt/airflow && "
-                "python -m src.ingestion.batch.coingecko_extractor"
+                "cd /opt/airflow && python -m src.ingestion.batch.coingecko_extractor"
             ),
         )
         extract_fear_greed = BashOperator(
             task_id="extract_fear_greed",
             bash_command=(
-                "cd /opt/airflow && "
-                "python -m src.ingestion.batch.fear_greed_extractor"
+                "cd /opt/airflow && python -m src.ingestion.batch.fear_greed_extractor"
             ),
         )
 
     # ── BRONZE ──────────────────────────────────────────────
-    with TaskGroup("bronze_load", tooltip="Cargar datos en Iceberg Bronze") as bronze_group:
+    with TaskGroup(
+        "bronze_load", tooltip="Cargar datos en Iceberg Bronze"
+    ) as bronze_group:
         api_to_bronze = BashOperator(
             task_id="api_to_bronze",
             bash_command=(
@@ -90,7 +91,9 @@ with DAG(
         )
 
     # ── SILVER ──────────────────────────────────────────────
-    with TaskGroup("silver_processing", tooltip="Limpiar y deduplicar en Silver") as silver_group:
+    with TaskGroup(
+        "silver_processing", tooltip="Limpiar y deduplicar en Silver"
+    ) as silver_group:
         bronze_to_silver = BashOperator(
             task_id="bronze_to_silver",
             bash_command=(
@@ -101,7 +104,9 @@ with DAG(
         )
 
     # ── GOLD (dbt) ──────────────────────────────────────────
-    with TaskGroup("gold_transformation", tooltip="Modelado dimensional con dbt") as gold_group:
+    with TaskGroup(
+        "gold_transformation", tooltip="Modelado dimensional con dbt"
+    ) as gold_group:
         dbt_run = BashOperator(
             task_id="dbt_run",
             bash_command=f"{DBT_CMD} run --profiles-dir . --target prod",
@@ -113,7 +118,9 @@ with DAG(
         dbt_run >> dbt_test
 
     # ── DATA QUALITY (Fase 7) ───────────────────────────────
-    with TaskGroup("data_quality", tooltip="Validación de calidad de datos") as quality_group:
+    with TaskGroup(
+        "data_quality", tooltip="Validación de calidad de datos"
+    ) as quality_group:
         quality_checks = BashOperator(
             task_id="quality_checks",
             bash_command=(
@@ -124,5 +131,11 @@ with DAG(
         )
 
     # ── DEPENDENCIAS ────────────────────────────────────────
-    (init_namespaces >> ingestion_group >> bronze_group
-     >> silver_group >> gold_group >> quality_group)
+    (
+        init_namespaces
+        >> ingestion_group
+        >> bronze_group
+        >> silver_group
+        >> gold_group
+        >> quality_group
+    )

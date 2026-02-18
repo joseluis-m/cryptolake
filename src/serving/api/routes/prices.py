@@ -1,6 +1,7 @@
 """
 Endpoints de precios — consultan fact_market_daily.
 """
+
 from datetime import date, timedelta
 from typing import Optional
 

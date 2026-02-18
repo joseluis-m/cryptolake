@@ -1,0 +1,10 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I", "W"]
+ignore = ["W291", "W293"]
+
+[lint.per-file-ignores]
+"src/processing/batch/*.py" = ["E402"]
+"src/quality/run_quality_checks.py" = ["E402"]

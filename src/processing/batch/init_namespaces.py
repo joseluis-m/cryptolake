@@ -1,4 +1,5 @@
 """Crear namespaces Iceberg necesarios para CryptoLake."""
+
 from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.getOrCreate()

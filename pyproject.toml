@@ -1,0 +1,17 @@
+[project]
+name = "cryptolake"
+version = "0.1.0"
+description = "Real-time crypto analytics lakehouse"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.3.0",
+    "mypy>=1.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

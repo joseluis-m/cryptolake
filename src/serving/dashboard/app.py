@@ -8,6 +8,7 @@ Ejecución local:
 
 En Docker: se levanta automáticamente en http://localhost:8501
 """
+
 import os
 
 import pandas as pd
@@ -84,23 +85,36 @@ if coins:
 
         # Precio + Moving Averages
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df["price_date"], y=df["price_usd"],
-            name="Price", line=dict(color="#4A90D9", width=2),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=df["price_date"],
+                y=df["price_usd"],
+                name="Price",
+                line=dict(color="#4A90D9", width=2),
+            )
+        )
         if "moving_avg_7d" in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df["price_date"], y=df["moving_avg_7d"],
-                name="MA 7d", line=dict(color="#F5A623", dash="dash"),
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=df["price_date"],
+                    y=df["moving_avg_7d"],
+                    name="MA 7d",
+                    line=dict(color="#F5A623", dash="dash"),
+                )
+            )
         if "moving_avg_30d" in df.columns:
-            fig.add_trace(go.Scatter(
-                x=df["price_date"], y=df["moving_avg_30d"],
-                name="MA 30d", line=dict(color="#7B68EE", dash="dot"),
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=df["price_date"],
+                    y=df["moving_avg_30d"],
+                    name="MA 30d",
+                    line=dict(color="#7B68EE", dash="dot"),
+                )
+            )
         fig.update_layout(
             title=f"{selected.title()} — Price & Moving Averages",
-            xaxis_title="Date", yaxis_title="Price (USD)",
+            xaxis_title="Date",
+            yaxis_title="Price (USD)",
             template="plotly_dark",
             height=450,
         )
@@ -129,8 +143,11 @@ if fg:
     }
 
     fig2 = px.bar(
-        fg_df, x="index_date", y="fear_greed_value",
-        color="classification", color_discrete_map=color_map,
+        fg_df,
+        x="index_date",
+        y="fear_greed_value",
+        color="classification",
+        color_discrete_map=color_map,
         title="Fear & Greed Index (last 60 days)",
         template="plotly_dark",
         height=350,

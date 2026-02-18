@@ -7,6 +7,7 @@ de la API. FastAPI los usa para:
 - Generar documentación OpenAPI automática
 - Serializar correctamente tipos como date/float
 """
+
 from datetime import date
 from typing import Optional
 
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 
 class PriceResponse(BaseModel):
     """Una fila de fact_market_daily."""
+
     coin_id: str
     price_date: date
     price_usd: float
@@ -31,6 +33,7 @@ class PriceResponse(BaseModel):
 
 class CoinResponse(BaseModel):
     """Una fila de dim_coins."""
+
     coin_id: str
     first_tracked_date: Optional[date] = None
     last_tracked_date: Optional[date] = None
@@ -44,6 +47,7 @@ class CoinResponse(BaseModel):
 
 class MarketOverview(BaseModel):
     """Resumen general del mercado."""
+
     total_coins: int
     date_range_start: Optional[date] = None
     date_range_end: Optional[date] = None
@@ -54,6 +58,7 @@ class MarketOverview(BaseModel):
 
 class FearGreedResponse(BaseModel):
     """Un dato del Fear & Greed Index."""
+
     index_date: date
     fear_greed_value: int
     classification: str
@@ -61,6 +66,7 @@ class FearGreedResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Health check de la API."""
+
     status: str
     thrift_connected: bool
     tables_available: int

@@ -1,0 +1,39 @@
+# ============================================================
+# Data Quality Checks — CryptoLake
+# ============================================================
+# Se ejecuta manualmente o con schedule.
+# Útil para verificar la calidad de datos en un entorno staging.
+# ============================================================
+name: Data Quality
+
+on:
+  workflow_dispatch:
+    inputs:
+      layer:
+        description: "Layer to validate (bronze/silver/gold/all)"
+        required: false
+        default: "all"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up -d --wait
+
+      - name: Wait for services
+        run: sleep 30
+
+      - name: Run quality checks
+        run: |
+          if [ "${{ github.event.inputs.layer }}" = "all" ]; then
+            make quality-check
+          else
+            make quality-${{ github.event.inputs.layer }}
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down

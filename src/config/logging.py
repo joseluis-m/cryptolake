@@ -9,6 +9,7 @@ Logging estructurado con structlog.
 Ejemplo de output:
   2025-01-15 10:30:00 [info] message_produced  topic=prices.realtime  coin=bitcoin
 """
+
 import structlog
 
 
