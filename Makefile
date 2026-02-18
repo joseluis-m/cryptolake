@@ -92,6 +92,38 @@ init-namespaces: ## Crear namespaces Iceberg (necesario tras down-clean)
 	    /opt/spark/work/src/processing/batch/init_namespaces.py
 	@echo "✅ Namespaces creados"
 
+# ── Fase 7: Data Quality ────────────────────────────────────
+
+quality-check: ## Run quality checks (all layers)
+	docker exec cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit \
+	    /opt/spark/work/src/quality/run_quality_checks.py
+
+quality-bronze: ## Quality checks: Bronze only
+	docker exec cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit \
+	    /opt/spark/work/src/quality/run_quality_checks.py --layer bronze
+
+quality-silver: ## Quality checks: Silver only
+	docker exec cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit \
+	    /opt/spark/work/src/quality/run_quality_checks.py --layer silver
+
+quality-gold: ## Quality checks: Gold only
+	docker exec cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit \
+	    /opt/spark/work/src/quality/run_quality_checks.py --layer gold
+
+
+# ── Fase 7: Serving ─────────────────────────────────────────
+
+api-logs: ## Tail API logs
+	docker logs -f cryptolake-api
+
+dashboard-logs: ## Tail Dashboard logs
+	docker logs -f cryptolake-dashboard
+
+
 pipeline: ## Ejecutar pipeline completo: Bronze → Silver → Gold
 	@echo "🚀 Ejecutando pipeline completo..."
 	$(MAKE) init-namespaces
@@ -100,7 +132,10 @@ pipeline: ## Ejecutar pipeline completo: Bronze → Silver → Gold
 #	$(MAKE) gold-transform
 	$(MAKE) dbt-run
 	$(MAKE) dbt-test
+	$(MAKE) quality-check
 	@echo "✅ Pipeline completado!"
+	@echo "   API Docs:  http://localhost:8000/docs"
+	@echo "   Dashboard: http://localhost:8501"
 
 # ── dbt (via contenedor Airflow, consistente con el pipeline) ──
 dbt-run: ## Ejecutar modelos dbt (staging → gold)
