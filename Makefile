@@ -85,8 +85,16 @@ gold-transform: ## Transformar Silver → Gold (sin dbt)
 	    /opt/spark/bin/spark-submit \
 	    /opt/spark/work/src/processing/batch/silver_to_gold.py
 
+init-namespaces: ## Crear namespaces Iceberg (necesario tras down-clean)
+	@echo "📦 Creando namespaces Iceberg..."
+	docker exec cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit --master 'local[1]' \
+	    /opt/spark/work/src/processing/batch/init_namespaces.py
+	@echo "✅ Namespaces creados"
+
 pipeline: ## Ejecutar pipeline completo: Bronze → Silver → Gold
 	@echo "🚀 Ejecutando pipeline completo..."
+	$(MAKE) init-namespaces
 	$(MAKE) bronze-load
 	$(MAKE) silver-transform
 #	$(MAKE) gold-transform
@@ -94,13 +102,31 @@ pipeline: ## Ejecutar pipeline completo: Bronze → Silver → Gold
 	$(MAKE) dbt-test
 	@echo "✅ Pipeline completado!"
 
-# ── dbt ─────────────────────────────────────────────────────
+# ── dbt (via contenedor Airflow, consistente con el pipeline) ──
 dbt-run: ## Ejecutar modelos dbt (staging → gold)
-	cd src/transformation/dbt_cryptolake && dbt run --profiles-dir .
+	docker exec cryptolake-airflow-scheduler \
+	    bash -c "cd /opt/airflow/src/transformation/dbt_cryptolake && /opt/dbt-venv/bin/dbt run --profiles-dir . --target prod"
 
 dbt-test: ## Ejecutar tests dbt
-	cd src/transformation/dbt_cryptolake && dbt test --profiles-dir .
+	docker exec cryptolake-airflow-scheduler \
+	    bash -c "cd /opt/airflow/src/transformation/dbt_cryptolake && /opt/dbt-venv/bin/dbt test --profiles-dir . --target prod"
 
 dbt-all: ## Ejecutar dbt run + test
 	$(MAKE) dbt-run
 	$(MAKE) dbt-test
+
+# ── dbt local (usa el venv de tu Mac) ──────────────────────
+dbt-run-local: ## Ejecutar dbt run en local
+	cd src/transformation/dbt_cryptolake && .venv/bin/dbt run --profiles-dir .
+
+dbt-test-local: ## Ejecutar dbt test en local
+	cd src/transformation/dbt_cryptolake && .venv/bin/dbt test --profiles-dir .
+
+# ── Airflow ─────────────────────────────────────────────────
+airflow-trigger: ## Trigger manual del DAG completo en Airflow
+	docker exec cryptolake-airflow-scheduler \
+	    airflow dags trigger cryptolake_full_pipeline
+
+airflow-status: ## Ver estado de la última ejecución del DAG
+	docker exec cryptolake-airflow-scheduler \
+	    airflow dags list-runs -d cryptolake_full_pipeline --limit 5
