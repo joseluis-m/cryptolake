@@ -43,7 +43,7 @@ models:
 
     # marts/ → Tablas físicas (star schema para análisis)
     marts:
-      +materialized: view
+      +materialized: table
       +schema: gold
 
 # ============================================================

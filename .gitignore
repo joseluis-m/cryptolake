@@ -17,3 +17,18 @@ target/
 dbt_packages/
 .terraform/
 *.tfstate
+
+# ── Guide files (learning material) ────────────────────────
+cryptolake-fases-*.md
+cryptolake-general-guide.md
+
+# ── Development artifacts ───────────────────────────────────
+dump_project.sh
+*_full_dump.txt
+requisitos_backup.txt
+
+# ── dbt user file ───────────────────────────────────────────
+src/transformation/dbt_cryptolake/.user.yml
+
+# ── Python packaging ────────────────────────────────────────
+*.egg-info/

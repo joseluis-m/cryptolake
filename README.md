@@ -1,6 +1,6 @@
-# 🏔️ CryptoLake — Real-Time Crypto Analytics Lakehouse
+# 🏔️ CryptoLake — Real-Time Crypto Analytics Lakehous
 
-[![CI Pipeline](https://github.com/tu-usuario/cryptolake/actions/workflows/ci.yml/badge.svg)](https://github.com/tu-usuario/cryptolake/actions/workflows/ci.yml)
+[![CI Pipeline](https://github.com/joseluis-m/cryptolake/actions/workflows/ci.yml/badge.svg)](https://github.com/joseluis-m/cryptolake/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg?logo=python&logoColor=white)](https://python.org)
 [![Apache Spark](https://img.shields.io/badge/Spark-3.5-E25A1C?logo=apachespark&logoColor=white)](https://spark.apache.org)
 [![Apache Iceberg](https://img.shields.io/badge/Iceberg-1.5-4A90D9?logo=apache&logoColor=white)](https://iceberg.apache.org)
@@ -93,7 +93,7 @@ graph TB
 
 ```bash
 # Clone the repository
-git clone https://github.com/tu-usuario/cryptolake.git
+git clone https://github.com/joseluis-m/cryptolake.git
 cd cryptolake
 
 # Configure environment
