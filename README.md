@@ -21,45 +21,44 @@
 
 ```mermaid
 graph TB
-    subgraph Sources["📡 Data Sources"]
-        BN[Binance WebSocket<br/>Real-time prices]
-        CG[CoinGecko API<br/>Historical data]
-        FG[Alternative.me<br/>Fear & Greed Index]
+    subgraph Sources["Data Sources"]
+        BN["Binance WebSocket"]
+        CG["CoinGecko API"]
+        FG["Alternative.me API"]
     end
 
-    subgraph Ingestion["🔄 Ingestion Layer"]
-        KF[Apache Kafka<br/>Streaming buffer]
-        PY[Python Extractors<br/>Batch ingestion]
+    subgraph Ingestion["Ingestion Layer"]
+        KF["Apache Kafka"]
+        PY["Python Extractors"]
     end
 
-    subgraph Lakehouse["🏔️ Lakehouse — MinIO + Apache Iceberg"]
-        direction LR
-        BR["🥉 Bronze<br/>Raw data · Append-only"]
-        SL["🥈 Silver<br/>Cleaned · MERGE INTO"]
-        GL["🥇 Gold<br/>Star Schema · dbt"]
+    subgraph Lakehouse["Lakehouse - MinIO + Apache Iceberg"]
+        BR["Bronze - Raw"]
+        SL["Silver - Cleaned"]
+        GL["Gold - Star Schema"]
         BR -->|Spark| SL
         SL -->|dbt| GL
     end
 
-    subgraph Orchestration["⏰ Orchestration"]
-        AF[Apache Airflow<br/>Daily DAG · 06:00 UTC]
+    subgraph Orchestration["Orchestration"]
+        AF["Apache Airflow - Daily DAG"]
     end
 
-    subgraph Quality["✅ Data Quality"]
-        DQ[Custom Validators<br/>15+ automated checks]
+    subgraph Quality["Data Quality"]
+        DQ["Custom Validators - 15+ checks"]
     end
 
-    subgraph Serving["🖥️ Serving Layer"]
-        API[FastAPI<br/>REST API · OpenAPI docs]
-        ST[Streamlit<br/>Interactive dashboard]
+    subgraph Serving["Serving Layer"]
+        API["FastAPI - REST API"]
+        ST["Streamlit - Dashboard"]
     end
 
     BN --> KF --> BR
     CG --> PY --> BR
     FG --> PY
-    AF -.->|orchestrates| Ingestion
-    AF -.->|orchestrates| Lakehouse
-    AF -.->|triggers| DQ
+    AF --> Ingestion
+    AF --> Lakehouse
+    AF --> DQ
     GL --> API --> ST
 ```
 
