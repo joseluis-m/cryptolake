@@ -1,67 +1,87 @@
 # ============================================================
 # Data Contract: bronze.historical_prices
 # ============================================================
-# Acuerdo entre el productor (extractores Python) y el consumidor
-# (job Spark Bronze → Silver). Si el schema cambia, ambos lados
-# deben acordar y versionar el cambio.
+# Agreement between producer (Python extractors) and consumer
+# (Spark Bronze-to-Silver job). Any schema change must be
+# versioned and agreed upon by both sides.
 # ============================================================
+
 contract:
   name: bronze_historical_prices
   version: "1.0.0"
   owner: ingestion-team
   description: >
-    Precios históricos de criptomonedas desde CoinGecko API.
-    Datos raw sin transformar, append-only en Iceberg.
+    Historical cryptocurrency prices from CoinGecko API.
+    Raw, untransformed data stored as append-only in Iceberg.
 
 schema:
   type: record
+  namespace: cryptolake.bronze
+  table: historical_prices
   fields:
     - name: coin_id
       type: string
       required: true
-      description: "ID de CoinGecko (ej: bitcoin, ethereum)"
+      description: "CoinGecko identifier (e.g. bitcoin, ethereum, solana)"
+
     - name: timestamp_ms
       type: long
       required: true
-      description: "Timestamp Unix en milisegundos"
+      description: "Unix timestamp in milliseconds (epoch)"
+
     - name: price_usd
       type: double
       required: true
+      description: "Price in USD at the given timestamp"
       constraints:
         minimum: 0
-      description: "Precio en USD, siempre positivo"
+
     - name: market_cap_usd
       type: double
       required: false
-      description: "Market cap en USD (puede ser null)"
+      description: "Market capitalization in USD (nullable)"
+
     - name: volume_24h_usd
       type: double
       required: false
-      description: "Volumen 24h en USD (puede ser null)"
+      description: "24-hour trading volume in USD (nullable)"
+
     - name: _ingested_at
       type: string
       required: true
-      description: "ISO timestamp del momento de extracción"
+      description: "ISO 8601 timestamp of extraction from source API"
+
     - name: _source
       type: string
       required: true
-      description: "Identificador del origen de datos"
+      description: "Data origin identifier (e.g. coingecko_historical)"
+
     - name: _loaded_at
       type: timestamp
       required: true
-      description: "Timestamp de escritura en Iceberg (Spark)"
+      description: "Iceberg write timestamp (set by Spark at load time)"
 
 quality:
   freshness:
     max_delay: "48 hours"
-    description: "Datos no deben tener más de 48h de antigüedad"
+    column: _loaded_at
+    description: "Most recent _loaded_at must be within 48h of current time"
+
   completeness:
-    required_fields_not_null: ["coin_id", "timestamp_ms", "price_usd"]
+    required_fields_not_null:
+      - coin_id
+      - timestamp_ms
+      - price_usd
+      - _ingested_at
+      - _source
+      - _loaded_at
+
   volume:
     min_records_per_coin: 100
-    description: "Al menos 100 registros por criptomoneda"
+    description: "At least 100 records per tracked cryptocurrency"
 
 sla:
   availability: "99%"
-  update_frequency: "daily"
+  update_frequency: daily
+  retry_policy: "2 retries with 5-minute delay"
   support_channel: "#data-engineering"
