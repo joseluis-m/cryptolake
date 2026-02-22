@@ -1,3 +1,13 @@
+# ============================================================
+# CryptoLake — Python Dependencies (pinned)
+# ============================================================
+# Full dependency list for reproducing the project environment.
+# Generated with: pip freeze > requirements.txt
+#
+# For development tools only, use: pip install -e ".[dev]"
+# For dbt (optional):  pip install dbt-core>=1.8 dbt-spark[PyHive]>=1.8
+# ============================================================
+
 agate==1.9.1
 annotated-types==0.7.0
 attrs==25.4.0
