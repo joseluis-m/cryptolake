@@ -7,7 +7,7 @@ y las alternativas que se evaluaron.
 
 ## ADR-001: Apache Iceberg como Table Format
 
-**Fecha**: 2025-01  
+**Fecha**: 2026-02  
 **Estado**: Aceptado
 
 **Contexto**:
@@ -31,7 +31,7 @@ El REST catalog simplifica la configuración en Docker.
 
 ## ADR-002: dbt para transformaciones Gold
 
-**Fecha**: 2025-01  
+**Fecha**: 2026-02
 **Estado**: Aceptado
 
 **Contexto**:
@@ -43,18 +43,18 @@ SQL compleja (window functions, joins).
 |--------|------|---------|
 | **dbt-core + dbt-spark** | SQL declarativo, tests, docs, estándar industria | Requiere Thrift Server, conflictos de deps |
 | PySpark puro | Control total, sin dependencias extra | Mucho boilerplate, sin tests declarativos |
-| SQLMesh | Alternativa moderna a dbt | Comunidad pequeña, menos ofertas de trabajo |
+| SQLMesh | Alternativa moderna a dbt | Comunidad pequeña, menor demanda laboral |
 
 **Decisión**: dbt-core con dbt-spark  
 **Justificación**: dbt es el estándar de la industria para la "T" de ELT.
-Saber dbt es un diferenciador en entrevistas. Los conflictos de dependencias
+Saber dbt es un diferenciador clave. Los conflictos de dependencias
 con Airflow se resuelven con un virtualenv aislado.
 
 ---
 
 ## ADR-003: Apache Airflow para orquestación
 
-**Fecha**: 2025-01  
+**Fecha**: 2026-02
 **Estado**: Aceptado
 
 **Contexto**:
@@ -64,8 +64,8 @@ entre tareas, reintentos, y monitorización.
 **Alternativas evaluadas**:
 | Opción | Pros | Contras |
 |--------|------|---------|
-| **Apache Airflow** | Estándar industria (16% ofertas DE), DAGs Python, UI web | Pesado en recursos, setup complejo |
-| Prefect | API moderna, más pythónico | Menos ofertas de trabajo |
+| **Apache Airflow** | Estándar industria, DAGs Python, UI web | Pesado en recursos, setup complejo |
+| Prefect | API moderna, más pythónico | Menor demanda laboral |
 | Dagster | Asset-based, buen testing | Comunidad más pequeña |
 | Cron + scripts | Simple, sin dependencias | Sin UI, sin reintentos, sin dependencias |
 
@@ -78,7 +78,7 @@ el pipeline.
 
 ## ADR-004: MinIO como storage local
 
-**Fecha**: 2025-01  
+**Fecha**: 2026-02
 **Estado**: Aceptado
 
 **Contexto**:
@@ -93,7 +93,7 @@ credenciales y el endpoint.
 
 ## ADR-005: FastAPI + Streamlit como serving layer
 
-**Fecha**: 2025-02  
+**Fecha**: 2026-02
 **Estado**: Aceptado
 
 **Contexto**:
@@ -111,21 +111,20 @@ de escribir SQL directamente.
 **Decisión**: FastAPI (API) + Streamlit (dashboard)  
 **Justificación**: FastAPI genera documentación Swagger automática. Streamlit
 permite prototipar dashboards rápidamente. La separación API/dashboard
-demuestra arquitectura de microservicios.
+aprovecha arquitectura de microservicios.
 
 ---
 
 ## ADR-006: Custom validators vs Great Expectations
 
-**Fecha**: 2025-02  
+**Fecha**: 2026-02
 **Estado**: Aceptado
 
 **Contexto**:
 Necesitamos validar la calidad de datos en cada capa del lakehouse.
-La guía original especificaba Great Expectations.
 
-**Decisión**: Validators custom ejecutados en Spark  
+**Decisión**: Custom validators ejecutados en Spark  
 **Justificación**: Great Expectations tiene conflictos de dependencias
 con el stack actual (protobuf vs Airflow, PyArrow vs PySpark). Los
-validators custom ejecutan SQL directamente en Spark sobre las tablas
+custom validators ejecutan SQL directamente en Spark sobre las tablas
 Iceberg, sin dependencias adicionales y con el mismo nivel de validación.
