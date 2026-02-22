@@ -1,40 +1,39 @@
 graph TB
-    subgraph Sources["📡 Data Sources"]
-        BN[Binance WebSocket<br/>Real-time prices]
-        CG[CoinGecko API<br/>Historical data]
-        FG[Alternative.me<br/>Fear & Greed Index]
+    subgraph Sources["Data Sources"]
+        BN["Binance WebSocket - Real-time prices"]
+        CG["CoinGecko API - Historical data"]
+        FG["Alternative.me - Fear and Greed Index"]
     end
 
-    subgraph Ingestion["🔄 Ingestion Layer"]
-        KF[Apache Kafka<br/>Topic: prices.realtime]
-        EX[Python Extractors<br/>Batch: 7-day lookback]
+    subgraph Ingestion["Ingestion Layer"]
+        KF["Apache Kafka - Topic: prices.realtime"]
+        EX["Python Extractors - Batch: 7-day lookback"]
     end
 
-    subgraph Lakehouse["🏔️ Lakehouse — MinIO + Apache Iceberg"]
-        direction LR
-        BR["🥉 BRONZE<br/>───────────<br/>historical_prices<br/>fear_greed<br/><i>Append-only, raw</i>"]
-        SL["🥈 SILVER<br/>───────────<br/>daily_prices<br/>fear_greed<br/><i>Deduped, typed</i>"]
-        GL["🥇 GOLD<br/>───────────<br/>fact_market_daily<br/>dim_coins<br/>dim_dates<br/><i>Star schema</i>"]
-        BR -->|"Spark Batch<br/>MERGE INTO"| SL
-        SL -->|"dbt run<br/>Window functions"| GL
+    subgraph Lakehouse["Lakehouse -- MinIO + Apache Iceberg"]
+        BR["BRONZE | historical_prices, fear_greed | Append-only, raw"]
+        SL["SILVER | daily_prices, fear_greed | Deduped, typed"]
+        GL["GOLD | fact_market_daily, dim_coins, dim_dates | Star schema"]
+        BR -->|"Spark MERGE INTO"| SL
+        SL -->|"dbt + Window functions"| GL
     end
 
-    subgraph Orchestration["⏰ Orchestration"]
-        AF[Apache Airflow<br/>DAG: 06:00 UTC daily]
+    subgraph Orchestration["Orchestration"]
+        AF["Apache Airflow - DAG: 06:00 UTC daily"]
     end
 
-    subgraph Quality["✅ Quality"]
-        DQ[Custom Validators<br/>Bronze: 8 checks<br/>Silver: 8 checks<br/>Gold: 5 checks]
+    subgraph Quality["Data Quality"]
+        DQ["Custom Validators - 21 checks across Bronze, Silver, Gold"]
     end
 
-    subgraph Serving["🖥️ Serving Layer"]
-        API[FastAPI :8000<br/>/docs /prices /analytics]
-        DB[Streamlit :8501<br/>Charts & KPIs]
+    subgraph Serving["Serving Layer"]
+        API["FastAPI :8000 - REST API + OpenAPI docs"]
+        DB["Streamlit :8501 - Interactive dashboard"]
     end
 
-    subgraph CICD["🔧 DevOps"]
-        GH[GitHub Actions<br/>lint → test → build]
-        TF[Terraform<br/>AWS S3 modules]
+    subgraph DevOps["CI/CD and Infrastructure"]
+        GH["GitHub Actions - lint, test, dbt compile, docker build"]
+        TF["Terraform - AWS S3 modules + lifecycle policies"]
     end
 
     BN --> KF
@@ -42,8 +41,8 @@ graph TB
     FG --> EX
     KF --> BR
     EX --> BR
-    AF -.->|orchestrates| Ingestion
-    AF -.->|orchestrates| Lakehouse
-    AF -.->|orchestrates| Quality
-    GL -->|PyHive / Thrift| API
-    API -->|HTTP| DB
+    AF --> Ingestion
+    AF --> Lakehouse
+    AF --> Quality
+    GL -->|"PyHive via Thrift"| API
+    API -->|"HTTP JSON"| DB
