@@ -1,9 +1,9 @@
 # ============================================================
-# CryptoLake — Docker Compose (corregido para Apache Spark oficial)
+# CryptoLake — Docker Compose
 # ============================================================
-# Arrancar:  docker compose up -d --build
-# Parar:     docker compose down
-# Resetear:  docker compose down -v
+# Start:  docker compose up -d --build
+# Stop:   docker compose down
+# Reset:  docker compose down -v
 # ============================================================
 
 x-common-env: &common-env
@@ -19,7 +19,7 @@ x-common-env: &common-env
 services:
 
   # ==========================================================
-  # CAPA DE ALMACENAMIENTO
+  # STORAGE LAYER
   # ==========================================================
 
   minio:
@@ -53,7 +53,7 @@ services:
       mc mb local/cryptolake-silver --ignore-existing;
       mc mb local/cryptolake-gold --ignore-existing;
       mc mb local/cryptolake-checkpoints --ignore-existing;
-      echo '✅ Buckets creados';
+      echo 'Buckets created';
       "
 
   iceberg-rest:
@@ -74,7 +74,7 @@ services:
         condition: service_healthy
 
   # ==========================================================
-  # CAPA DE STREAMING
+  # STREAMING LAYER
   # ==========================================================
 
   kafka:
@@ -115,19 +115,8 @@ services:
         condition: service_healthy
 
   # ==========================================================
-  # CAPA DE PROCESAMIENTO (Apache Spark — imagen oficial)
+  # PROCESSING LAYER (Apache Spark)
   # ==========================================================
-  #
-  # La imagen oficial de Apache Spark NO tiene scripts mágicos
-  # como la antigua imagen de Bitnami. Necesitamos lanzar el
-  # master y el worker explícitamente con spark-class.
-  #
-  # spark-class es el lanzador de bajo nivel de Spark.
-  # Le pasamos la clase Java que queremos ejecutar:
-  #   - org.apache.spark.deploy.master.Master  → arranca el master
-  #   - org.apache.spark.deploy.worker.Worker  → arranca un worker
-  #
-  # El master coordina, el worker ejecuta las tareas.
 
   spark-master:
     build:
@@ -136,21 +125,15 @@ services:
     image: cryptolake-spark
     container_name: cryptolake-spark-master
     ports:
-      - "8082:8080"   # Spark Web UI (la imagen oficial usa 8080 internamente)
-      - "7077:7077"   # Puerto del master (los workers se conectan aquí)
+      - "8082:8080"
+      - "7077:7077"
     environment:
       <<: *common-env
-      # SPARK_MASTER_HOST le dice al master en qué hostname anunciarse.
-      # Los workers usarán este nombre para conectarse.
       SPARK_MASTER_HOST: spark-master
       SPARK_MASTER_PORT: 7077
-      # SPARK_NO_DAEMONIZE hace que Spark se ejecute en primer plano (foreground).
-      # Sin esto, el proceso arrancaría en background y Docker pensaría que
-      # terminó, matando el contenedor inmediatamente. Es el error que viste.
       SPARK_NO_DAEMONIZE: "true"
     volumes:
       - ./src:/opt/spark/work/src
-    # Lanzar el master directamente con spark-class
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
@@ -174,40 +157,43 @@ services:
         condition: service_healthy
     volumes:
       - ./src:/opt/spark/work/src
-    # Lanzar el worker apuntando al master.
-    # --memory y --cores limitan los recursos que este worker ofrece al cluster.
     command: >
       /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
       spark://spark-master:7077
       --memory 2g
       --cores 2
-  
-  # ============================================================
-  # Spark Thrift Server: Punto de entrada JDBC para dbt y SQL tools.
-  # Permite ejecutar consultas SQL sobre Iceberg desde fuera de Spark.
-  # Es como un "puente" entre herramientas SQL (dbt, DBeaver, etc.)
-  # y el motor de procesamiento Spark.
-  # ============================================================
-  spark-thrift:
-      build:
-        context: ./docker/spark
-        dockerfile: Dockerfile
-      container_name: cryptolake-spark-thrift
-      ports:
-        - "10000:10000"
-      environment:
-        <<: *common-env
-        SPARK_NO_DAEMONIZE: "true"
-      volumes:
-        - ./src:/opt/spark/work/src:ro
-      depends_on:
-        spark-master:
-          condition: service_healthy
-      command: ["/opt/spark/sbin/start-thriftserver.sh", "--master","spark://spark-master:7077", "--hiveconf", "hive.server2.thrift.port=10000", "--hiveconf", "hive.server2.thrift.bind.host=0.0.0.0", "--hiveconf", "hive.server2.authentication=NOSASL", "--conf", "spark.sql.defaultCatalog=cryptolake"]
 
+  # Spark Thrift Server — JDBC entry point for dbt and SQL tools
+  spark-thrift:
+    build:
+      context: ./docker/spark
+      dockerfile: Dockerfile
+    container_name: cryptolake-spark-thrift
+    ports:
+      - "10000:10000"
+    environment:
+      <<: *common-env
+      SPARK_NO_DAEMONIZE: "true"
+    volumes:
+      - ./src:/opt/spark/work/src:ro
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    command:
+      - /opt/spark/sbin/start-thriftserver.sh
+      - --master
+      - spark://spark-master:7077
+      - --hiveconf
+      - hive.server2.thrift.port=10000
+      - --hiveconf
+      - hive.server2.thrift.bind.host=0.0.0.0
+      - --hiveconf
+      - hive.server2.authentication=NOSASL
+      - --conf
+      - spark.sql.defaultCatalog=cryptolake
 
   # ==========================================================
-  # CAPA DE ORQUESTACIÓN
+  # ORCHESTRATION LAYER
   # ==========================================================
 
   airflow-postgres:
@@ -252,7 +238,9 @@ services:
     command: >
       bash -c "
       airflow db migrate &&
-      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@cryptolake.dev || true &&
+      airflow users create --username admin --password admin
+        --firstname Admin --lastname User --role Admin
+        --email admin@cryptolake.dev || true &&
       airflow webserver
       "
 
@@ -278,10 +266,11 @@ services:
       airflow-postgres:
         condition: service_healthy
     command: airflow scheduler
-  
-  # ============================================================
-  # SERVING LAYER (Fase 7)
-  # ============================================================
+
+  # ==========================================================
+  # SERVING LAYER
+  # ==========================================================
+
   api:
     build:
       context: ./docker/api
