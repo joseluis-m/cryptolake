@@ -1,52 +1,85 @@
 # ============================================================
 # Data Contract: silver.daily_prices
 # ============================================================
+# Agreement between producer (Spark Bronze-to-Silver job) and
+# consumer (dbt Gold transformation). One record per coin per
+# day, deduplicated via MERGE INTO.
+# ============================================================
+
 contract:
   name: silver_daily_prices
   version: "1.0.0"
   owner: processing-team
   description: >
-    Precios diarios limpios y deduplicados. Un registro por
-    coin_id + price_date. Actualizado con MERGE INTO.
+    Clean, deduplicated daily prices. One record per
+    (coin_id, price_date) pair. Updated incrementally
+    using Spark MERGE INTO with ROW_NUMBER deduplication.
 
 schema:
   type: record
+  namespace: cryptolake.silver
+  table: daily_prices
   fields:
     - name: coin_id
       type: string
       required: true
-      description: "ID de la criptomoneda"
+      description: "Cryptocurrency identifier (e.g. bitcoin, ethereum)"
+
     - name: price_date
       type: date
       required: true
-      description: "Fecha del precio (1 fila por día)"
+      description: "Price date (one row per day per coin)"
+
     - name: price_usd
       type: double
       required: true
+      description: "Daily price in USD (strictly positive)"
       constraints:
         minimum: 0
         exclusive_minimum: true
-      description: "Precio > 0 en USD"
+
     - name: market_cap_usd
       type: double
       required: false
+      description: "Market capitalization in USD (nullable)"
+
     - name: volume_24h_usd
       type: double
       required: false
+      description: "24-hour trading volume in USD (nullable)"
+
     - name: _processed_at
       type: timestamp
       required: true
+      description: "Timestamp of Silver processing (set by Spark)"
 
 quality:
   uniqueness:
-    key: ["coin_id", "price_date"]
-    description: "No puede haber duplicados por coin+fecha"
+    key: [coin_id, price_date]
+    description: "Primary key constraint — no duplicate (coin, date) pairs"
+
   validity:
-    no_future_dates: true
-    positive_prices: true
+    no_future_dates:
+      column: price_date
+      rule: "price_date <= CURRENT_DATE()"
+    positive_prices:
+      column: price_usd
+      rule: "price_usd > 0"
+
+  completeness:
+    required_fields_not_null:
+      - coin_id
+      - price_date
+      - price_usd
+      - _processed_at
+
   freshness:
     max_delay: "48 hours"
+    column: _processed_at
+    description: "Most recent _processed_at must be within 48h of current time"
 
 sla:
   availability: "99%"
-  update_frequency: "daily"
+  update_frequency: daily
+  retry_policy: "2 retries with 5-minute delay"
+  support_channel: "#data-engineering"
