@@ -77,8 +77,7 @@ ruff format src/ tests/
 pytest tests/unit/ -v
 
 # dbt compile (verificar SQL sin ejecutar)
-cd src/transformation/dbt_cryptolake
-dbt compile --profiles-dir . --target ci
+make dbt-run
 ```
 
 ## Troubleshooting
