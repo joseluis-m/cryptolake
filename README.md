@@ -111,7 +111,7 @@ Bronze (Raw)                Silver (Cleaned)             Gold (Analytics-Ready)
 ──────────────              ─────────────────            ──────────────────────
 historical_prices           daily_prices                 fact_market_daily
   coin_id                     coin_id                      coin_id (FK → dim_coins)
-  timestamp_ms      ──►      price_date         ──►       price_date (FK → dim_dates)
+  timestamp_ms      ──►       price_date         ──►       price_date (FK → dim_dates)
   price_usd                   price_usd                    price_usd
   market_cap_usd              market_cap_usd               moving_avg_7d, moving_avg_30d
   volume_24h_usd              volume_24h_usd               volatility_7d, avg_volume_7d
@@ -138,25 +138,25 @@ fear_greed                  fear_greed
               ┌─────────────────────┐
               │     dim_dates       │
               │     ─────────       │
-              │  date_day (PK)     │◄───┐
-              │  year, month, day  │    │
-              │  quarter, week     │    │
-              │  is_weekend        │    │
-              │  day_name          │    │
+              │  date_day (PK)      │◄───┐
+              │  year, month, day   │    │
+              │  quarter, week      │    │
+              │  is_weekend         │    │
+              │  day_name           │    │
               └─────────────────────┘    │
-                                        │ price_date = date_day
-┌─────────────────────┐   ┌────────────┴──────────────────────────┐
+                                         │ price_date = date_day
+┌─────────────────────┐   ┌──────────────┴────────────────────────┐
 │     dim_coins       │   │        fact_market_daily              │
 │     ─────────       │   │        ──────────────────             │
-│  coin_id (PK)      │◄──┤  coin_id (FK)                         │
-│  first_tracked     │   │  price_date (FK)                      │
-│  last_tracked      │   │  price_usd, market_cap_usd            │
-│  total_days        │   │  volume_24h_usd                       │
-│  all_time_high     │   │  price_change_pct_1d                  │
-│  all_time_low      │   │  moving_avg_7d, moving_avg_30d        │
-│  avg_price         │   │  volatility_7d, avg_volume_7d         │
-│  avg_daily_volume  │   │  fear_greed_value, market_sentiment    │
-│  price_range_pct   │   │  sentiment_score, ma30_signal          │
+│  coin_id (PK)       │◄──┤  coin_id (FK)                         │
+│  first_tracked      │   │  price_date (FK)                      │
+│  last_tracked       │   │  price_usd, market_cap_usd            │
+│  total_days         │   │  volume_24h_usd                       │
+│  all_time_high      │   │  price_change_pct_1d                  │
+│  all_time_low       │   │  moving_avg_7d, moving_avg_30d        │
+│  avg_price          │   │  volatility_7d, avg_volume_7d         │
+│  avg_daily_volume   │   │  fear_greed_value, market_sentiment   │
+│  price_range_pct    │   │  sentiment_score, ma30_signal         │
 └─────────────────────┘   └───────────────────────────────────────┘
 ```
 
