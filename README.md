@@ -1,4 +1,4 @@
-# 🏔️ CryptoLake — Real-Time Crypto Analytics Lakehouse
+# CryptoLake — Real-Time Crypto Analytics Lakehouse
 
 [![CI Pipeline](https://github.com/joseluis-m/cryptolake/actions/workflows/ci.yml/badge.svg)](https://github.com/joseluis-m/cryptolake/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg?logo=python&logoColor=white)](https://python.org)
@@ -89,7 +89,7 @@ git clone https://github.com/joseluis-m/cryptolake.git
 cd cryptolake
 cp .env.example .env
 make up          # Start 12+ containers
-make pipeline    # Run full ETL: Bronze → Silver → Gold → Quality
+make pipeline    # Run full ELT: Bronze → Silver → Gold → Quality
 ```
 
 | Service | URL | Credentials |
@@ -198,7 +198,7 @@ cryptolake/
 │   ├── data_dictionary.md          # Every field in every table
 │   ├── data_contracts/             # YAML schema contracts (Bronze, Silver)
 │   ├── diagrams/                   # Mermaid architecture diagram
-│   └── setup_guide.md             # Zero-to-running guide
+│   └── setup_guide.md              # Zero-to-running guide
 ├── src/
 │   ├── config/                     # Pydantic settings + structured logging
 │   ├── ingestion/
@@ -271,9 +271,9 @@ Building CryptoLake was an exercise in integrating production-grade tools into a
 5. **The Medallion pattern enables independent debugging** — When the Gold layer produces unexpected results, I can query Silver and Bronze independently to isolate whether the issue is in ingestion, cleaning, or transformation. Each layer is a checkpoint.
 
 ## License
-
+    
 This project is licensed under the MIT License — see [LICENSE](LICENSE).
 
 ---
 
-*Built by [José Luis Moreno](https://github.com/joseluis-m) as a Data Engineering portfolio project demonstrating production-grade practices with modern data stack technologies.*
+*Built by [José Luis Moreno Rodríguez](https://github.com/joseluis-m) as a Data Engineering portfolio project demonstrating production-grade practices with modern data stack technologies.*
