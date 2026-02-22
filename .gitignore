@@ -1,34 +1,60 @@
-# Seguridad y entornos
-.env
+# ============================================================
+# CryptoLake — .gitignore
+# ============================================================
+
+# -- Python --
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
 .venv/
 venv/
-__pycache__/
-.DS_Store
 
-# Datos y logs
+# -- Testing --
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# -- IDE --
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -- Environment --
+.env
+
+# -- Docker --
 docker/*/data/
-airflow-logs/
-logs/
-*.parquet
-*.log
 
-# dbt y otros
+# -- dbt --
 target/
 dbt_packages/
-.terraform/
-*.tfstate
-
-# ── Guide files (learning material) ────────────────────────
-cryptolake-fases-*.md
-cryptolake-general-guide.md
-
-# ── Development artifacts ───────────────────────────────────
-dump_project.sh
-*_full_dump.txt
-requisitos_backup.txt
-
-# ── dbt user file ───────────────────────────────────────────
+logs/
 src/transformation/dbt_cryptolake/.user.yml
 
-# ── Python packaging ────────────────────────────────────────
-*.egg-info/
+# -- Spark --
+*.parquet
+derby.log
+metastore_db/
+
+# -- Terraform --
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+# -- Logs --
+*.log
+airflow-logs/
+
+# -- OS --
+.DS_Store
+Thumbs.db
+
+# -- Development artifacts --
+dump_project.sh
+*_full_dump.txt
