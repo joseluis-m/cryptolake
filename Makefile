@@ -28,6 +28,7 @@ up: ## Start all services (12+ containers)
 	@echo "   Spark UI:        http://localhost:8082"
 	@echo "   Airflow:         http://localhost:8083  (admin / admin)"
 	@echo "   API Docs:        http://localhost:8000/docs"
+	@echo "   API ReDoc:       http://localhost:8000/redoc"
 	@echo "   Dashboard:       http://localhost:8501"
 
 down: ## Stop all services (preserves data)
