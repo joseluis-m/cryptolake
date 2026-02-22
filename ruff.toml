@@ -1,10 +1,21 @@
+# ============================================================
+# CryptoLake — Ruff Configuration
+# ============================================================
+# Linting and formatting rules for the project.
+# Run:  ruff check src/ tests/
+#       ruff format src/ tests/
+# ============================================================
+
 line-length = 100
 target-version = "py311"
 
 [lint]
 select = ["E", "F", "I", "W"]
+# W291/W293: trailing whitespace in multi-line SQL strings (intentional)
 ignore = ["W291", "W293"]
 
 [lint.per-file-ignores]
+# E402: module-level imports not at top of file
+# These files have docstrings and sys.path manipulation before imports
 "src/processing/batch/*.py" = ["E402"]
 "src/quality/run_quality_checks.py" = ["E402"]
