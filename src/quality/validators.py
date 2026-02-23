@@ -1,7 +1,7 @@
 """
-Framework de validación de calidad de datos — CryptoLake Fase 7.
+Data quality validation framework.
 
-Checks alineados con los schemas reales del proyecto:
+Validators aligned with actual project schemas:
 
 Bronze:
   - historical_prices: coin_id, timestamp_ms, price_usd, market_cap_usd,
@@ -34,9 +34,7 @@ from pyspark.sql import SparkSession
 logger = logging.getLogger(__name__)
 
 
-# ════════════════════════════════════════════════════════════
-# Modelos de resultado
-# ════════════════════════════════════════════════════════════
+# -- Result models ------------------------------------------
 
 
 class CheckStatus(str, Enum):
@@ -48,7 +46,7 @@ class CheckStatus(str, Enum):
 
 @dataclass
 class CheckResult:
-    """Resultado de un check individual."""
+    """Result of a single quality check."""
 
     check_name: str
     layer: str
@@ -72,13 +70,11 @@ class CheckResult:
         }
 
 
-# ════════════════════════════════════════════════════════════
-# Base
-# ════════════════════════════════════════════════════════════
+# -- Base ---------------------------------------------------
 
 
 class BaseValidator:
-    """Clase base con utilidades comunes para todos los validadores."""
+    """Base class with shared utilities for all validators."""
 
     def __init__(self, spark: SparkSession):
         self.spark = spark
@@ -86,10 +82,10 @@ class BaseValidator:
 
     def _add(self, result: CheckResult):
         self.results.append(result)
-        icons = {"passed": "✅", "failed": "❌", "warning": "⚠️", "error": "💥"}
-        icon = icons.get(result.status.value, "❓")
+        markers = {"passed": "[+]", "failed": "[-]", "warning": "[!]", "error": "[X]"}
+        marker = markers.get(result.status.value, "[?]")
         logger.info(
-            f"{icon} [{result.layer}] {result.check_name} on {result.table_name}: {result.message}"
+            f"{marker} [{result.layer}] {result.check_name} on {result.table_name}: {result.message}"
         )
 
     def _exists(self, table: str) -> bool:
@@ -124,19 +120,11 @@ class BaseValidator:
         }
 
 
-# ════════════════════════════════════════════════════════════
-# BRONZE
-# ════════════════════════════════════════════════════════════
-# Columnas reales:
-#   historical_prices: coin_id, timestamp_ms, price_usd, market_cap_usd,
-#                      volume_24h_usd, _ingested_at, _source, _loaded_at
-#   fear_greed:        value, classification, timestamp,
-#                      _ingested_at, _source, _loaded_at
-# ════════════════════════════════════════════════════════════
+# -- Bronze -------------------------------------------------
 
 
 class BronzeValidator(BaseValidator):
-    """Valida las tablas de la capa Bronze."""
+    """Validate Bronze layer tables."""
 
     TABLES = {
         "cryptolake.bronze.historical_prices": {
@@ -216,7 +204,7 @@ class BronzeValidator(BaseValidator):
         )
 
     def _check_freshness(self, table: str, ts_col: str):
-        """Verifica que _loaded_at no supere las 48h de antigüedad."""
+        """Verify that _loaded_at is not older than 48 hours."""
         try:
             row = self.spark.sql(f"""
                 SELECT TIMESTAMPDIFF(
@@ -267,19 +255,11 @@ class BronzeValidator(BaseValidator):
             )
 
 
-# ════════════════════════════════════════════════════════════
-# SILVER
-# ════════════════════════════════════════════════════════════
-# Columnas reales:
-#   daily_prices: coin_id, price_date, price_usd, market_cap_usd,
-#                 volume_24h_usd, _processed_at
-#   fear_greed:   index_date, fear_greed_value, classification,
-#                 _processed_at
-# ════════════════════════════════════════════════════════════
+# -- Silver -------------------------------------------------
 
 
 class SilverValidator(BaseValidator):
-    """Valida las tablas de la capa Silver."""
+    """Validate Silver layer tables."""
 
     def check_all(self) -> list[CheckResult]:
         self._check_daily_prices()
@@ -300,7 +280,7 @@ class SilverValidator(BaseValidator):
             )
             return
 
-        # No duplicados: (coin_id, price_date) único
+        # No duplicates: (coin_id, price_date) must be unique
         dups = (
             self.spark.sql(f"""
             SELECT COUNT(*) AS cnt FROM (
@@ -323,7 +303,7 @@ class SilverValidator(BaseValidator):
             )
         )
 
-        # Precios positivos
+        # Positive prices
         neg = (
             self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE price_usd <= 0").first().cnt
         )
@@ -339,7 +319,7 @@ class SilverValidator(BaseValidator):
             )
         )
 
-        # Not null en columnas clave
+        # Not null on key columns
         for col in ["coin_id", "price_date", "price_usd"]:
             n = self._nulls(table, col)
             self._add(
@@ -354,7 +334,7 @@ class SilverValidator(BaseValidator):
                 )
             )
 
-        # No fechas futuras
+        # No future dates
         future = (
             self.spark.sql(f"SELECT COUNT(*) AS cnt FROM {table} WHERE price_date > CURRENT_DATE()")
             .first()
@@ -386,7 +366,7 @@ class SilverValidator(BaseValidator):
             )
             return
 
-        # Valores entre 0 y 100
+        # Values must be in range [0, 100]
         out = (
             self.spark.sql(f"""
             SELECT COUNT(*) AS cnt FROM {table}
@@ -407,7 +387,7 @@ class SilverValidator(BaseValidator):
             )
         )
 
-        # Clasificaciones válidas
+        # Valid classifications
         valid = ["Extreme Fear", "Fear", "Neutral", "Greed", "Extreme Greed"]
         in_clause = ", ".join(f"'{v}'" for v in valid)
         invalid = (
@@ -430,7 +410,7 @@ class SilverValidator(BaseValidator):
             )
         )
 
-        # Not null en index_date (PK de la tabla)
+        # Not null on primary key
         n = self._nulls(table, "index_date")
         self._add(
             CheckResult(
@@ -445,17 +425,11 @@ class SilverValidator(BaseValidator):
         )
 
 
-# ════════════════════════════════════════════════════════════
-# GOLD
-# ════════════════════════════════════════════════════════════
-# dim_dates usa date_day (NO date_key)
-# fact_market_daily usa price_date como FK a dim_dates.date_day
-# dim_coins usa coin_id como PK
-# ════════════════════════════════════════════════════════════
+# -- Gold ---------------------------------------------------
 
 
 class GoldValidator(BaseValidator):
-    """Valida las tablas de la capa Gold (star schema dbt)."""
+    """Validate Gold layer tables (star schema)."""
 
     def check_all(self) -> list[CheckResult]:
         self._check_dim_coins()
@@ -478,7 +452,7 @@ class GoldValidator(BaseValidator):
             )
             return
 
-        # coin_id es PK → debe ser único
+        # coin_id is PK -> must be unique
         total = self._count(table)
         distinct = self._distinct(table, "coin_id")
         self._add(
@@ -507,7 +481,7 @@ class GoldValidator(BaseValidator):
             )
             return
 
-        # Continuidad: no gaps en date_day
+        # Continuity: no gaps in date_day
         row = self.spark.sql(f"""
             SELECT COUNT(*) AS total,
                    DATEDIFF(MAX(date_day), MIN(date_day)) + 1 AS expected
@@ -554,11 +528,7 @@ class GoldValidator(BaseValidator):
         )
 
     def _check_referential_integrity(self):
-        """
-        FK checks:
-          fact.coin_id       → dim_coins.coin_id
-          fact.price_date    → dim_dates.date_day
-        """
+        """FK checks: fact.coin_id -> dim_coins, fact.price_date -> dim_dates."""
         fact = "cryptolake.gold.fact_market_daily"
         dim_coins = "cryptolake.gold.dim_coins"
         dim_dates = "cryptolake.gold.dim_dates"
@@ -566,7 +536,7 @@ class GoldValidator(BaseValidator):
         if not all(self._exists(t) for t in [fact, dim_coins, dim_dates]):
             return
 
-        # coin_id → dim_coins.coin_id
+        # coin_id -> dim_coins.coin_id
         orphans = (
             self.spark.sql(f"""
             SELECT COUNT(*) AS cnt FROM {fact} f
@@ -588,7 +558,7 @@ class GoldValidator(BaseValidator):
             )
         )
 
-        # price_date → dim_dates.date_day
+        # price_date -> dim_dates.date_day
         orphans = (
             self.spark.sql(f"""
             SELECT COUNT(*) AS cnt FROM {fact} f
