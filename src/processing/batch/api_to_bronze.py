@@ -48,7 +48,7 @@ TRACKED_COINS = [
     "uniswap",
     "aave",
     "bittensor",
-    "ondo",
+    "ondo-finance",
 ]
 
 
