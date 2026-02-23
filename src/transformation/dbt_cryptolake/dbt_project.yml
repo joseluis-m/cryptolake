@@ -1,57 +1,36 @@
-# ============================================================
-# dbt_project.yml — Configuración del proyecto dbt
-# ============================================================
-# Este archivo define:
-# - Nombre y versión del proyecto
-# - Dónde buscar modelos, tests, macros, etc.
-# - Cómo materializar cada carpeta de modelos
-#
-# Documentación: https://docs.getdbt.com/reference/dbt_project.yml
-# ============================================================
+# dbt_project.yml -- CryptoLake dbt configuration
+# Docs: https://docs.getdbt.com/reference/dbt_project.yml
 
 name: cryptolake
 version: '1.0.0'
 config-version: 2
 
-# "profile" conecta este proyecto con una configuración de conexión
-# en profiles.yml. Debe coincidir exactamente.
 profile: cryptolake
 
-# Rutas donde dbt busca cada tipo de archivo
 model-paths: ["models"]
 test-paths: ["tests"]
 macro-paths: ["macros"]
 seed-paths: ["seeds"]
 analysis-paths: ["analyses"]
 
-# Carpetas que dbt limpia con "dbt clean"
 clean-targets:
-  - target        # Carpeta donde dbt genera los SQL compilados
-  - dbt_packages  # Paquetes externos instalados
+  - target
+  - dbt_packages
 
-# ============================================================
-# Configuración de materialización por carpeta
-# ============================================================
-# Cada carpeta dentro de models/ tiene su propia estrategia.
-# El prefijo "+" significa "aplica a todos los modelos en esta carpeta".
+# Materialization strategy per folder
 models:
   cryptolake:
-    # staging/ → Vistas SQL (no almacenan datos, siempre frescas)
+    # staging/ -> Ephemeral (not persisted, always fresh)
     staging:
       +materialized: ephemeral
       +schema: staging
 
-    # marts/ → Tablas físicas (star schema para análisis)
+    # marts/ -> Physical tables (star schema for analytics)
     marts:
       +materialized: table
       +schema: gold
 
-# ============================================================
-# Hooks que se ejecutan al inicio de cada "dbt run"
-# ============================================================
-# Creamos los namespaces de Iceberg si no existen.
-# Sin esto, dbt fallaría al intentar crear tablas en un namespace
-# que no existe.
+# Create Iceberg namespaces before model execution
 on-run-start:
   - "CREATE NAMESPACE IF NOT EXISTS cryptolake.staging"
   - "CREATE NAMESPACE IF NOT EXISTS cryptolake.gold"
