@@ -1,6 +1,6 @@
-# Data Dictionary — CryptoLake
+# Data Dictionary -- CryptoLake
 
-Documentación completa de cada campo en cada tabla del Lakehouse.
+Complete field-level documentation for every table in the Lakehouse.
 
 ---
 
@@ -8,36 +8,36 @@ Documentación completa de cada campo en cada tabla del Lakehouse.
 
 ### cryptolake.bronze.historical_prices
 
-Datos raw de precios históricos desde CoinGecko API. Append-only.
+Raw historical price data from CoinGecko API. Append-only.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `coin_id` | STRING | No | Identificador CoinGecko (ej: `bitcoin`, `ethereum`) |
-| `timestamp_ms` | BIGINT | No | Timestamp Unix en milisegundos del datapoint |
-| `price_usd` | DOUBLE | No | Precio en USD en el momento del timestamp |
-| `market_cap_usd` | DOUBLE | Sí | Capitalización de mercado en USD |
-| `volume_24h_usd` | DOUBLE | Sí | Volumen de trading en las últimas 24h en USD |
-| `_ingested_at` | STRING | No | ISO timestamp de cuándo el extractor Python descargó los datos |
-| `_source` | STRING | No | Origen de los datos (ej: `coingecko_market_chart`) |
-| `_loaded_at` | TIMESTAMP | No | Timestamp de Spark de cuándo se escribió en Iceberg |
+| `coin_id` | STRING | No | CoinGecko identifier (e.g. `bitcoin`, `ethereum`) |
+| `timestamp_ms` | BIGINT | No | Unix timestamp in milliseconds of the datapoint |
+| `price_usd` | DOUBLE | No | Price in USD at the given timestamp |
+| `market_cap_usd` | DOUBLE | Yes | Market capitalization in USD |
+| `volume_24h_usd` | DOUBLE | Yes | 24-hour trading volume in USD |
+| `_ingested_at` | STRING | No | ISO timestamp of when the Python extractor downloaded the data |
+| `_source` | STRING | No | Data origin (e.g. `coingecko_market_chart`) |
+| `_loaded_at` | TIMESTAMP | No | Spark timestamp of when the record was written to Iceberg |
 
-**Particionado por**: `coin_id`  
-**Compresión**: zstd
+**Partitioned by**: `coin_id`
+**Compression**: zstd
 
 ### cryptolake.bronze.fear_greed
 
-Datos raw del Fear & Greed Index desde Alternative.me API.
+Raw Fear & Greed Index data from Alternative.me API.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `value` | INT | No | Valor del índice (0-100). 0 = Extreme Fear, 100 = Extreme Greed |
-| `classification` | STRING | No | Clasificación textual: Extreme Fear, Fear, Neutral, Greed, Extreme Greed |
-| `timestamp` | BIGINT | No | Timestamp Unix en segundos del dato |
-| `_ingested_at` | STRING | No | ISO timestamp de extracción |
-| `_source` | STRING | No | Origen: `alternative_me_fng` |
-| `_loaded_at` | TIMESTAMP | No | Timestamp de carga en Iceberg |
+| `value` | INT | No | Index value (0-100). 0 = Extreme Fear, 100 = Extreme Greed |
+| `classification` | STRING | No | Text label: Extreme Fear, Fear, Neutral, Greed, Extreme Greed |
+| `timestamp` | BIGINT | No | Unix timestamp in seconds |
+| `_ingested_at` | STRING | No | ISO timestamp of extraction |
+| `_source` | STRING | No | Origin: `alternative_me_fng` |
+| `_loaded_at` | TIMESTAMP | No | Iceberg load timestamp |
 
-**Compresión**: zstd
+**Compression**: zstd
 
 ---
 
@@ -45,33 +45,33 @@ Datos raw del Fear & Greed Index desde Alternative.me API.
 
 ### cryptolake.silver.daily_prices
 
-Precios limpios, deduplicados, con un registro por coin/día.
+Cleaned, deduplicated prices with one record per coin per day.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `coin_id` | STRING | No | Identificador de la criptomoneda |
-| `price_date` | DATE | No | Fecha del precio (convertida desde `timestamp_ms`) |
-| `price_usd` | DOUBLE | No | Precio en USD (solo valores > 0) |
-| `market_cap_usd` | DOUBLE | Sí | Market cap (null si el valor original era <= 0) |
-| `volume_24h_usd` | DOUBLE | Sí | Volumen 24h (null si el valor original era <= 0) |
-| `_processed_at` | TIMESTAMP | No | Timestamp de procesamiento Silver |
+| `coin_id` | STRING | No | Cryptocurrency identifier |
+| `price_date` | DATE | No | Price date (converted from `timestamp_ms`) |
+| `price_usd` | DOUBLE | No | Price in USD (only values > 0) |
+| `market_cap_usd` | DOUBLE | Yes | Market cap (null if original value was <= 0) |
+| `volume_24h_usd` | DOUBLE | Yes | 24h volume (null if original value was <= 0) |
+| `_processed_at` | TIMESTAMP | No | Silver processing timestamp |
 
-**Particionado por**: `coin_id`  
-**Deduplicación**: `ROW_NUMBER() OVER (PARTITION BY coin_id, price_date ORDER BY _loaded_at DESC)`  
-**Actualización**: MERGE INTO (upsert incremental)
+**Partitioned by**: `coin_id`
+**Deduplication**: `ROW_NUMBER() OVER (PARTITION BY coin_id, price_date ORDER BY _loaded_at DESC)`
+**Update strategy**: MERGE INTO (incremental upsert)
 
 ### cryptolake.silver.fear_greed
 
-Fear & Greed Index limpio, con fecha en formato DATE.
+Cleaned Fear & Greed Index with DATE-typed dates.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `index_date` | DATE | No | Fecha del índice (convertida desde `timestamp`) |
-| `fear_greed_value` | INT | No | Valor del índice 0-100 |
-| `classification` | STRING | No | Clasificación textual del sentimiento |
-| `_processed_at` | TIMESTAMP | No | Timestamp de procesamiento |
+| `index_date` | DATE | No | Index date (converted from `timestamp`) |
+| `fear_greed_value` | INT | No | Index value 0-100 |
+| `classification` | STRING | No | Sentiment classification label |
+| `_processed_at` | TIMESTAMP | No | Processing timestamp |
 
-**Actualización**: MERGE INTO
+**Update strategy**: MERGE INTO
 
 ---
 
@@ -79,66 +79,66 @@ Fear & Greed Index limpio, con fecha en formato DATE.
 
 ### cryptolake.gold.dim_coins
 
-Dimensión de criptomonedas con estadísticas agregadas. SCD Type 1.
+Cryptocurrency dimension with aggregate statistics. SCD Type 1.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `coin_id` | STRING | No | **PK**. Identificador único de la criptomoneda |
-| `first_tracked_date` | DATE | No | Primera fecha con datos |
-| `last_tracked_date` | DATE | No | Última fecha con datos |
-| `total_days_tracked` | INT | No | Número de días con datos |
-| `all_time_low` | DOUBLE | No | Precio mínimo histórico |
-| `all_time_high` | DOUBLE | No | Precio máximo histórico |
-| `avg_price` | DOUBLE | No | Precio medio |
-| `avg_daily_volume` | DOUBLE | Sí | Volumen medio diario |
-| `price_range_pct` | DOUBLE | No | Rango de precio en % ((max-min)/min × 100) |
-| `_loaded_at` | TIMESTAMP | No | Timestamp de generación por dbt |
+| `coin_id` | STRING | No | **PK**. Unique cryptocurrency identifier |
+| `first_tracked_date` | DATE | No | Earliest date with data |
+| `last_tracked_date` | DATE | No | Most recent date with data |
+| `total_days_tracked` | INT | No | Number of days with data |
+| `all_time_low` | DOUBLE | No | Historical minimum price |
+| `all_time_high` | DOUBLE | No | Historical maximum price |
+| `avg_price` | DOUBLE | No | Average price |
+| `avg_daily_volume` | DOUBLE | Yes | Average daily volume |
+| `price_range_pct` | DOUBLE | No | Price range in % ((max-min)/min x 100) |
+| `_loaded_at` | TIMESTAMP | No | dbt generation timestamp |
 
-**Materialización dbt**: `table` (recreada completa en cada run)
+**dbt materialization**: `table` (fully recreated on each run)
 
 ### cryptolake.gold.dim_dates
 
-Dimensión calendario generada desde las fechas de los precios.
+Calendar dimension generated from observed price dates.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `date_day` | DATE | No | **PK**. Fecha del calendario |
-| `year` | INT | No | Año |
-| `month` | INT | No | Mes (1-12) |
-| `day_of_month` | INT | No | Día del mes (1-31) |
-| `day_of_week` | INT | No | Día de la semana (1=Domingo, 7=Sábado) |
-| `week_of_year` | INT | No | Semana del año (1-52) |
-| `quarter` | INT | No | Trimestre (1-4) |
-| `is_weekend` | BOOLEAN | No | `true` si es sábado o domingo |
-| `day_name` | STRING | No | Nombre del día (Monday, Tuesday, ...) |
-| `month_name` | STRING | No | Nombre del mes (January, February, ...) |
+| `date_day` | DATE | No | **PK**. Calendar date |
+| `year` | INT | No | Year |
+| `month` | INT | No | Month (1-12) |
+| `day_of_month` | INT | No | Day of month (1-31) |
+| `day_of_week` | INT | No | Day of week (1=Sunday, 7=Saturday) |
+| `week_of_year` | INT | No | Week of year (1-52) |
+| `quarter` | INT | No | Quarter (1-4) |
+| `is_weekend` | BOOLEAN | No | `true` if Saturday or Sunday |
+| `day_name` | STRING | No | Day name (Monday, Tuesday, ...) |
+| `month_name` | STRING | No | Month name (January, February, ...) |
 
-**Materialización dbt**: `table`
+**dbt materialization**: `table`
 
 ### cryptolake.gold.fact_market_daily
 
-Tabla de hechos central. Granularidad: 1 fila = 1 moneda × 1 día.
+Central fact table. Granularity: 1 row = 1 coin x 1 day.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `coin_id` | STRING | No | **FK** → dim_coins.coin_id |
-| `price_date` | DATE | No | **FK** → dim_dates.date_day |
-| `price_usd` | DOUBLE | No | Precio de cierre del día |
-| `market_cap_usd` | DOUBLE | Sí | Capitalización de mercado |
-| `volume_24h_usd` | DOUBLE | Sí | Volumen de trading 24h |
-| `price_change_pct_1d` | DOUBLE | Sí | Cambio % respecto al día anterior |
-| `moving_avg_7d` | DOUBLE | Sí | Media móvil 7 días |
-| `moving_avg_30d` | DOUBLE | Sí | Media móvil 30 días |
-| `volatility_7d` | DOUBLE | Sí | Desviación estándar del precio (7 días) |
-| `avg_volume_7d` | DOUBLE | Sí | Media de volumen 7 días |
-| `fear_greed_value` | INT | Sí | Valor Fear & Greed del día (via LEFT JOIN) |
-| `market_sentiment` | STRING | Sí | Clasificación del sentimiento |
-| `sentiment_score` | INT | Sí | Score numérico 1-5 del sentimiento |
-| `ma30_signal` | STRING | Sí | ABOVE_MA30 / BELOW_MA30 / AT_MA30 |
-| `combined_signal` | STRING | Sí | Señal combinada precio + sentimiento |
-| `_loaded_at` | TIMESTAMP | No | Timestamp de generación por dbt |
+| `coin_id` | STRING | No | **FK** -> dim_coins.coin_id |
+| `price_date` | DATE | No | **FK** -> dim_dates.date_day |
+| `price_usd` | DOUBLE | No | Daily closing price |
+| `market_cap_usd` | DOUBLE | Yes | Market capitalization |
+| `volume_24h_usd` | DOUBLE | Yes | 24h trading volume |
+| `price_change_pct_1d` | DOUBLE | Yes | Day-over-day change % |
+| `moving_avg_7d` | DOUBLE | Yes | 7-day moving average |
+| `moving_avg_30d` | DOUBLE | Yes | 30-day moving average |
+| `volatility_7d` | DOUBLE | Yes | 7-day price standard deviation |
+| `avg_volume_7d` | DOUBLE | Yes | 7-day average volume |
+| `fear_greed_value` | INT | Yes | Fear & Greed value for the day (via LEFT JOIN) |
+| `market_sentiment` | STRING | Yes | Sentiment classification |
+| `sentiment_score` | INT | Yes | Numeric sentiment score 1-5 |
+| `ma30_signal` | STRING | Yes | ABOVE_MA30 / BELOW_MA30 / AT_MA30 |
+| `combined_signal` | STRING | Yes | Combined price + sentiment signal |
+| `_loaded_at` | TIMESTAMP | No | dbt generation timestamp |
 
-**Materialización dbt**: `table`  
+**dbt materialization**: `table`
 **Unique key**: `[coin_id, price_date]`
 
 ---
@@ -147,16 +147,16 @@ Tabla de hechos central. Granularidad: 1 fila = 1 moneda × 1 día.
 
 ### cryptolake.quality.check_results
 
-Resultados de los quality checks (generada por `run_quality_checks.py`).
+Quality check results (generated by `run_quality_checks.py`).
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `check_name` | STRING | No | Nombre del check (ej: `no_duplicates`) |
-| `layer` | STRING | No | Capa validada: bronze, silver, gold |
-| `table_name` | STRING | No | Nombre completo de la tabla |
+| `check_name` | STRING | No | Check name (e.g. `no_duplicates`) |
+| `layer` | STRING | No | Validated layer: bronze, silver, gold |
+| `table_name` | STRING | No | Fully qualified table name |
 | `status` | STRING | No | passed, failed, warning, error |
-| `metric_value` | DOUBLE | Sí | Valor medido (ej: 0 duplicados) |
-| `threshold` | DOUBLE | Sí | Umbral aceptable |
-| `message` | STRING | Sí | Descripción del resultado |
-| `checked_at` | STRING | No | ISO timestamp de la ejecución |
-| `run_id` | STRING | No | Identificador único del run |
+| `metric_value` | DOUBLE | Yes | Measured value (e.g. 0 duplicates) |
+| `threshold` | DOUBLE | Yes | Acceptable threshold |
+| `message` | STRING | Yes | Result description |
+| `checked_at` | STRING | No | ISO timestamp of the check execution |
+| `run_id` | STRING | No | Unique run identifier |
