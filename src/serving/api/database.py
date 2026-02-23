@@ -1,21 +1,20 @@
 """
-Conexión al Spark Thrift Server via PyHive.
+Spark Thrift Server connection via PyHive.
 
-Reutiliza la misma conexión que dbt usa (thrift en puerto 10000).
-La API ejecuta queries SQL sobre las tablas Gold del star schema.
+Reuses the same Thrift connection that dbt uses (port 10000).
+The API executes SQL queries against the Gold star schema tables.
 """
 
 import os
 
 from pyhive import hive
 
-# Dentro de Docker: spark-thrift. Desde Mac: localhost
 THRIFT_HOST = os.getenv("THRIFT_HOST", "spark-thrift")
 THRIFT_PORT = int(os.getenv("THRIFT_PORT", "10000"))
 
 
 def get_connection():
-    """Crea una conexión PyHive al Spark Thrift Server."""
+    """Create a PyHive connection to the Spark Thrift Server."""
     return hive.connect(
         host=THRIFT_HOST,
         port=THRIFT_PORT,
@@ -24,13 +23,7 @@ def get_connection():
 
 
 def execute_query(sql: str) -> list[dict]:
-    """
-    Ejecuta una query SQL y devuelve una lista de diccionarios.
-
-    Ejemplo:
-        rows = execute_query("SELECT * FROM cryptolake.gold.dim_coins")
-        # [{"coin_id": "bitcoin", "avg_price": 95000.0, ...}, ...]
-    """
+    """Execute a SQL query and return a list of dictionaries."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
