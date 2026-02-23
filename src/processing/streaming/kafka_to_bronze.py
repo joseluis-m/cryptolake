@@ -46,9 +46,7 @@ TABLE_NAME = "cryptolake.bronze.realtime_trades"
 
 def main():
     spark = (
-        SparkSession.builder.appName("CryptoLake-KafkaToBronze")
-        .master("local[2]")
-        .getOrCreate()
+        SparkSession.builder.appName("CryptoLake-KafkaToBronze").master("local[2]").getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")
 
@@ -92,9 +90,7 @@ def main():
     # Parse JSON value and add metadata
     parsed_df = (
         stream_df.select(
-            F.from_json(F.col("value").cast("string"), TRADE_SCHEMA).alias(
-                "data"
-            ),
+            F.from_json(F.col("value").cast("string"), TRADE_SCHEMA).alias("data"),
             F.col("partition").alias("_kafka_partition"),
             F.col("offset").alias("_kafka_offset"),
         )

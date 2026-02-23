@@ -102,6 +102,28 @@ make pipeline    # Run full ELT: Bronze → Silver → Gold → Quality
 | Spark Master UI | http://localhost:8082 | — |
 | Kafka UI | http://localhost:8080 | — |
 
+### Real-Time Streaming (Optional Demo)
+
+The platform includes a real-time streaming pipeline as a proof-of-concept
+that demonstrates the Kafka infrastructure. This is independent from the
+batch pipeline above and writes to a separate Bronze table (`realtime_trades`).
+
+```bash
+# Setup (one time, requires local Python venv)
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt confluent-kafka websockets
+
+# Start streaming (launches Spark consumer in background + Binance producer)
+make stream-start
+
+# Ctrl+C to stop the producer, then:
+make stream-stop
+```
+
+After running for a few seconds, verify data in the
+[Kafka UI](http://localhost:8080) (topic `prices.realtime`) and in the
+[MinIO Console](http://localhost:9001) (`cryptolake-bronze/realtime_trades/`).
+
 ## Data Model
 
 ### Medallion Architecture (Bronze → Silver → Gold)
@@ -205,7 +227,8 @@ cryptolake/
 │   │   ├── batch/                  # CoinGecko + Fear & Greed extractors
 │   │   └── streaming/              # Binance WebSocket → Kafka producer
 │   ├── processing/
-│   │   └── batch/                  # api_to_bronze, bronze_to_silver, init_namespaces
+│   │   ├── batch/                  # api_to_bronze, bronze_to_silver, init_namespaces
+│   │   └── streaming/              # Kafka to Bronze (Spark Structured Streaming)
 │   ├── transformation/
 │   │   └── dbt_cryptolake/         # dbt project: staging + marts (star schema)
 │   ├── quality/                    # Custom validator framework (Bronze/Silver/Gold)
@@ -269,6 +292,14 @@ Building CryptoLake was an exercise in integrating production-grade tools into a
 4. **Docker Compose at scale teaches infrastructure** — Running 12+ services locally forced me to learn health check dependencies, resource limits, startup ordering, and volume management. These are the same concerns that matter in Kubernetes production deployments.
 
 5. **The Medallion pattern enables independent debugging** — When the Gold layer produces unexpected results, I can query Silver and Bronze independently to isolate whether the issue is in ingestion, cleaning, or transformation. Each layer is a checkpoint.
+
+## Future Improvements
+
+- **Stream-to-Silver aggregation** — Aggregate real-time trades from `realtime_trades` into daily prices compatible with the Silver layer, closing the loop between streaming and batch
+- **Incremental dbt models** — Use `is_incremental()` to process only new data instead of full table rebuilds
+- **Alerting** — Slack/email notifications when data quality checks fail
+- **API authentication** — OAuth2 or API key auth for the FastAPI endpoints
+- **Kubernetes migration** — Helm chart deployment for production scalability
 
 ## License
     

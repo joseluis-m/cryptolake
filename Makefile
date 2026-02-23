@@ -165,6 +165,46 @@ kafka-describe: ## Describe prices topic
 	    kafka-topics --bootstrap-server localhost:29092 \
 	    --describe --topic prices.realtime
 
+# -- Streaming (Binance WebSocket -> Kafka -> Bronze) --------
+
+stream-producer: ## Start Binance WebSocket producer (writes to Kafka)
+	@echo "Starting Binance WebSocket producer..."
+	@echo "  Target: Kafka topic 'prices.realtime' on localhost:9092"
+	@echo "  Stop:   Ctrl+C"
+	@echo ""
+	PYTHONPATH=. python src/ingestion/streaming/binance_producer.py
+
+stream-consumer: ## Start Spark Structured Streaming (Kafka -> Bronze)
+	@echo "Starting Spark Structured Streaming consumer..."
+	@echo "  Source: Kafka topic 'prices.realtime'"
+	@echo "  Target: cryptolake.bronze.realtime_trades (Iceberg)"
+	@echo "  Stop:   Ctrl+C"
+	@echo ""
+	docker exec cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit \
+	    --master 'local[2]' \
+	    /opt/spark/work/src/processing/streaming/kafka_to_bronze.py
+
+stream-start: ## Start full streaming pipeline (consumer bg + producer fg)
+	@echo "Starting streaming pipeline..."
+	@echo ""
+	@echo "Step 1/2: Starting Spark consumer (Kafka -> Bronze)..."
+	docker exec -d cryptolake-spark-master \
+	    /opt/spark/bin/spark-submit \
+	    --master 'local[2]' \
+	    /opt/spark/work/src/processing/streaming/kafka_to_bronze.py
+	@sleep 10
+	@echo "Step 2/2: Starting Binance producer (WebSocket -> Kafka)..."
+	@echo "  Stop producer with Ctrl+C, then run: make stream-stop"
+	@echo ""
+	PYTHONPATH=. python src/ingestion/streaming/binance_producer.py
+
+stream-stop: ## Stop the background Spark streaming consumer
+	@echo "Stopping Spark streaming consumer..."
+	docker exec cryptolake-spark-master \
+	    bash -c "kill $$(ps aux | grep kafka_to_bronze | grep -v grep | awk '{print $$2}') 2>/dev/null || true"
+	@echo "Consumer stopped."
+
 # -- Airflow -------------------------------------------------
 
 airflow-trigger: ## Trigger full pipeline DAG manually

@@ -87,6 +87,29 @@ pytest tests/unit/ -v
 make dbt-run
 ```
 
+## Step 6: Real-Time Streaming (Optional)
+
+The streaming pipeline is independent from the batch pipeline and demonstrates
+Kafka + Spark Structured Streaming. It requires a local Python virtual
+environment with additional dependencies.
+
+```bash
+# Create venv and install dependencies (one time)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt confluent-kafka websockets
+
+# Start streaming (Spark consumer in background + Binance producer in foreground)
+make stream-start
+
+# Ctrl+C to stop the producer, then:
+make stream-stop
+```
+
+After a few seconds, check the Kafka UI at http://localhost:8080 to see the
+`prices.realtime` topic with messages flowing. Data lands in MinIO under
+`cryptolake-bronze/realtime_trades/`.
+
 ## Troubleshooting
 
 **Docker: "Not enough memory"**
