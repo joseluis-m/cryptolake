@@ -1,15 +1,15 @@
 """
-DAG Master de CryptoLake — Fase 7.
+CryptoLake Master DAG — Full ELT Pipeline.
 
-Pipeline completo:
-1. Init namespaces Iceberg
-2. Ingesta batch (CoinGecko + Fear & Greed)
-3. Bronze load (APIs → Iceberg)
-4. Silver processing (Bronze → Silver con Spark)
-5. Gold transformation (Silver → Gold con dbt)
-6. Data quality checks (validadores custom)
+Steps:
+1. Init Iceberg namespaces
+2. Batch ingestion (CoinGecko + Fear & Greed)
+3. Bronze load (APIs -> Iceberg)
+4. Silver processing (Bronze -> Silver with Spark)
+5. Gold transformation (Silver -> Gold with dbt)
+6. Data quality checks (custom validators)
 
-Schedule: Diario a las 06:00 UTC
+Schedule: Daily at 06:00 UTC
 """
 
 from datetime import datetime, timedelta
@@ -27,10 +27,9 @@ default_args = {
     "execution_timeout": timedelta(hours=1),
 }
 
-# Prefijo común para aislar dbt del entorno de Airflow.
-# PYTHONNOUSERSITE=1 evita que Python cargue paquetes del usuario.
-# PYTHONPATH apunta exclusivamente al virtualenv de dbt, evitando
-# conflictos de protobuf entre dbt-core (>=6.0) y Airflow (<5.0).
+# dbt environment isolation: PYTHONNOUSERSITE=1 prevents loading user packages.
+# PYTHONPATH points exclusively to the dbt virtualenv, avoiding protobuf
+# version conflicts between dbt-core (>=6.0) and Airflow (<5.0).
 DBT_ENV = (
     "export PYTHONNOUSERSITE=1 && export PYTHONPATH=/opt/dbt-venv/lib/python3.11/site-packages && "
 )
@@ -39,14 +38,14 @@ DBT_CMD = DBT_ENV + "cd /opt/airflow/src/transformation/dbt_cryptolake && /opt/d
 with DAG(
     dag_id="cryptolake_full_pipeline",
     default_args=default_args,
-    description="Pipeline: Ingesta → Bronze → Silver → Gold → Quality",
+    description="Pipeline: Ingest -> Bronze -> Silver -> Gold -> Quality",
     schedule="0 6 * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["cryptolake", "production"],
     doc_md=__doc__,
 ) as dag:
-    # ── INIT ────────────────────────────────────────────────
+    # -- Init ------------------------------------------------
     init_namespaces = BashOperator(
         task_id="init_namespaces",
         bash_command=(
@@ -56,8 +55,8 @@ with DAG(
         ),
     )
 
-    # ── INGESTA ─────────────────────────────────────────────
-    with TaskGroup("ingestion", tooltip="Descarga datos de APIs externas") as ingestion_group:
+    # -- Ingestion -------------------------------------------
+    with TaskGroup("ingestion", tooltip="Extract data from external APIs") as ingestion_group:
         extract_coingecko = BashOperator(
             task_id="extract_coingecko",
             bash_command=("cd /opt/airflow && python -m src.ingestion.batch.coingecko_extractor"),
@@ -67,8 +66,8 @@ with DAG(
             bash_command=("cd /opt/airflow && python -m src.ingestion.batch.fear_greed_extractor"),
         )
 
-    # ── BRONZE ──────────────────────────────────────────────
-    with TaskGroup("bronze_load", tooltip="Cargar datos en Iceberg Bronze") as bronze_group:
+    # -- Bronze ----------------------------------------------
+    with TaskGroup("bronze_load", tooltip="Load raw data into Iceberg Bronze") as bronze_group:
         api_to_bronze = BashOperator(
             task_id="api_to_bronze",
             bash_command=(
@@ -78,8 +77,8 @@ with DAG(
             ),
         )
 
-    # ── SILVER ──────────────────────────────────────────────
-    with TaskGroup("silver_processing", tooltip="Limpiar y deduplicar en Silver") as silver_group:
+    # -- Silver ----------------------------------------------
+    with TaskGroup("silver_processing", tooltip="Clean and deduplicate in Silver") as silver_group:
         bronze_to_silver = BashOperator(
             task_id="bronze_to_silver",
             bash_command=(
@@ -89,8 +88,8 @@ with DAG(
             ),
         )
 
-    # ── GOLD (dbt) ──────────────────────────────────────────
-    with TaskGroup("gold_transformation", tooltip="Modelado dimensional con dbt") as gold_group:
+    # -- Gold (dbt) ------------------------------------------
+    with TaskGroup("gold_transformation", tooltip="Dimensional modeling with dbt") as gold_group:
         dbt_run = BashOperator(
             task_id="dbt_run",
             bash_command=f"{DBT_CMD} run --profiles-dir . --target prod",
@@ -101,8 +100,8 @@ with DAG(
         )
         dbt_run >> dbt_test
 
-    # ── DATA QUALITY (Fase 7) ───────────────────────────────
-    with TaskGroup("data_quality", tooltip="Validación de calidad de datos") as quality_group:
+    # -- Data Quality ----------------------------------------
+    with TaskGroup("data_quality", tooltip="Data quality validation") as quality_group:
         quality_checks = BashOperator(
             task_id="quality_checks",
             bash_command=(
@@ -112,7 +111,7 @@ with DAG(
             ),
         )
 
-    # ── DEPENDENCIAS ────────────────────────────────────────
+    # -- Dependencies ----------------------------------------
     (
         init_namespaces
         >> ingestion_group
