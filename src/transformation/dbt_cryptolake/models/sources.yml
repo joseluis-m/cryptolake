@@ -1,49 +1,42 @@
-# ============================================================
-# sources.yml — Definición de datos de entrada para dbt
-# ============================================================
-# Un "source" en dbt es una tabla que ya existe en tu base de datos
-# y que dbt NO crea ni gestiona. Solo la lee.
+# sources.yml -- Silver layer tables consumed by dbt
 #
-# En nuestro caso, las tablas Silver son creadas por los scripts
-# de Spark (bronze_to_silver.py). dbt las lee para construir Gold.
+# These tables are created by Spark (bronze_to_silver.py).
+# dbt reads them to build the Gold star schema.
 #
-# En los modelos SQL, las referenciamos así:
-#   {{ source('silver', 'daily_prices') }}
-#   → se traduce a: silver.daily_prices
-#   → que Spark resuelve como: cryptolake.silver.daily_prices
-# ============================================================
+# Reference in models: {{ source('silver', 'daily_prices') }}
+# Resolves to: cryptolake.silver.daily_prices
 
 version: 2
 
 sources:
   - name: silver
-    description: "Capa Silver del Lakehouse — datos limpios y deduplicados"
+    description: "Lakehouse Silver layer -- cleaned and deduplicated data"
     schema: silver
     tables:
       - name: daily_prices
-        description: "Precios diarios por criptomoneda, deduplicados y validados"
+        description: "Daily prices per cryptocurrency, deduplicated and validated"
         columns:
           - name: coin_id
-            description: "Identificador único de la criptomoneda (ej: bitcoin, ethereum)"
+            description: "Cryptocurrency identifier (e.g. bitcoin, ethereum)"
           - name: price_date
-            description: "Fecha del precio (tipo DATE)"
+            description: "Price date (DATE type)"
           - name: price_usd
-            description: "Precio en dólares estadounidenses"
+            description: "Price in US dollars"
           - name: market_cap_usd
-            description: "Capitalización de mercado en USD"
+            description: "Market capitalization in USD"
           - name: volume_24h_usd
-            description: "Volumen de trading en las últimas 24 horas"
+            description: "24-hour trading volume in USD"
           - name: _processed_at
-            description: "Timestamp de cuándo se procesó este registro en Silver"
+            description: "Silver processing timestamp"
 
       - name: fear_greed
-        description: "Índice Fear & Greed del mercado crypto (0-100)"
+        description: "Crypto market Fear & Greed Index (0-100)"
         columns:
           - name: index_date
-            description: "Fecha del índice"
+            description: "Index date"
           - name: fear_greed_value
-            description: "Valor numérico (0=Extreme Fear, 100=Extreme Greed)"
+            description: "Numeric value (0=Extreme Fear, 100=Extreme Greed)"
           - name: classification
-            description: "Clasificación textual del sentimiento"
+            description: "Sentiment text classification"
           - name: _processed_at
-            description: "Timestamp de procesamiento"
+            description: "Processing timestamp"
