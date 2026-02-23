@@ -1,130 +1,126 @@
 # Architecture Decision Records (ADRs)
 
-Documento que explica las decisiones técnicas del proyecto CryptoLake
-y las alternativas que se evaluaron.
+Technical decisions made in the CryptoLake project and the alternatives evaluated.
 
 ---
 
-## ADR-001: Apache Iceberg como Table Format
+## ADR-001: Apache Iceberg as Table Format
 
-**Fecha**: 2026-02  
-**Estado**: Aceptado
+**Date**: 2026-02
+**Status**: Accepted
 
-**Contexto**:
-Necesitamos un formato de tabla que soporte ACID transactions, schema
-evolution, y time travel sobre object storage (S3/MinIO).
+**Context**:
+The project requires a table format supporting ACID transactions, schema
+evolution, and time travel over object storage (S3/MinIO).
 
-**Alternativas evaluadas**:
-| Opción | Pros | Contras |
-|--------|------|---------|
-| **Apache Iceberg** | ACID, time travel, schema evolution, REST catalog, adoptado por AWS/Snowflake/Databricks | Ecosistema más joven que Hive |
-| Delta Lake | Buena integración con Spark, open source | Muy ligado a Databricks, menos portable |
-| Apache Hudi | Buen soporte de upserts | Más complejo de configurar, comunidad más pequeña |
-| Hive tables | Simple, maduro | Sin ACID, sin time travel, sin schema evolution |
+**Alternatives evaluated**:
+| Option | Pros | Cons |
+|--------|------|------|
+| **Apache Iceberg** | ACID, time travel, schema evolution, REST catalog, adopted by AWS/Snowflake/Databricks | Younger ecosystem than Hive |
+| Delta Lake | Good Spark integration, open source | Tightly coupled to Databricks, less portable |
+| Apache Hudi | Strong upsert support | More complex to configure, smaller community |
+| Hive tables | Simple, mature | No ACID, no time travel, no schema evolution |
 
-**Decisión**: Apache Iceberg  
-**Justificación**: Es el formato lakehouse que más tracción tiene en 2025-2026,
-con soporte nativo en AWS (Athena, EMR, Glue), Snowflake, y Databricks.
-El REST catalog simplifica la configuración en Docker.
-
----
-
-## ADR-002: dbt para transformaciones Gold
-
-**Fecha**: 2026-02
-**Estado**: Aceptado
-
-**Contexto**:
-La capa Gold requiere modelado dimensional (star schema) con lógica
-SQL compleja (window functions, joins).
-
-**Alternativas evaluadas**:
-| Opción | Pros | Contras |
-|--------|------|---------|
-| **dbt-core + dbt-spark** | SQL declarativo, tests, docs, estándar industria | Requiere Thrift Server, conflictos de deps |
-| PySpark puro | Control total, sin dependencias extra | Mucho boilerplate, sin tests declarativos |
-| SQLMesh | Alternativa moderna a dbt | Comunidad pequeña, menor demanda laboral |
-
-**Decisión**: dbt-core con dbt-spark  
-**Justificación**: dbt es el estándar de la industria para la "T" de ELT.
-Saber dbt es un diferenciador clave. Los conflictos de dependencias
-con Airflow se resuelven con un virtualenv aislado.
+**Decision**: Apache Iceberg
+**Rationale**: Iceberg is the lakehouse table format with the most traction
+in 2025-2026, with native support in AWS (Athena, EMR, Glue), Snowflake,
+and Databricks. The REST catalog simplifies configuration in Docker.
 
 ---
 
-## ADR-003: Apache Airflow para orquestación
+## ADR-002: dbt for Gold Transformations
 
-**Fecha**: 2026-02
-**Estado**: Aceptado
+**Date**: 2026-02
+**Status**: Accepted
 
-**Contexto**:
-Necesitamos ejecutar el pipeline completo diariamente con dependencias
-entre tareas, reintentos, y monitorización.
+**Context**:
+The Gold layer requires dimensional modeling (star schema) with complex
+SQL logic (window functions, joins).
 
-**Alternativas evaluadas**:
-| Opción | Pros | Contras |
-|--------|------|---------|
-| **Apache Airflow** | Estándar industria, DAGs Python, UI web | Pesado en recursos, setup complejo |
-| Prefect | API moderna, más pythónico | Menor demanda laboral |
-| Dagster | Asset-based, buen testing | Comunidad más pequeña |
-| Cron + scripts | Simple, sin dependencias | Sin UI, sin reintentos, sin dependencias |
+**Alternatives evaluated**:
+| Option | Pros | Cons |
+|--------|------|------|
+| **dbt-core + dbt-spark** | Declarative SQL, tests, docs, industry standard | Requires Thrift Server, dependency conflicts |
+| Pure PySpark | Full control, no extra dependencies | Verbose boilerplate, no declarative tests |
+| SQLMesh | Modern dbt alternative | Small community, lower job market demand |
 
-**Decisión**: Apache Airflow 2.9  
-**Justificación**: Es la herramienta de orquestación más demandada en ofertas
-de trabajo de Data Engineering. La UI web permite monitorizar visualmente
-el pipeline.
-
----
-
-## ADR-004: MinIO como storage local
-
-**Fecha**: 2026-02
-**Estado**: Aceptado
-
-**Contexto**:
-Necesitamos object storage S3-compatible para desarrollo local.
-
-**Decisión**: MinIO  
-**Justificación**: API 100% compatible con AWS S3. El código funciona
-idéntico en local (MinIO) y en producción (AWS S3). Solo cambian las
-credenciales y el endpoint.
+**Decision**: dbt-core with dbt-spark
+**Rationale**: dbt is the industry standard for the "T" in ELT. Proficiency
+in dbt is a key differentiator in the job market. Dependency conflicts with
+Airflow are resolved using an isolated virtualenv.
 
 ---
 
-## ADR-005: FastAPI + Streamlit como serving layer
+## ADR-003: Apache Airflow for Orchestration
 
-**Fecha**: 2026-02
-**Estado**: Aceptado
+**Date**: 2026-02
+**Status**: Accepted
 
-**Contexto**:
-Los datos Gold necesitan ser accesibles para análisis sin necesidad
-de escribir SQL directamente.
+**Context**:
+The pipeline must run daily with task dependencies, retries, and monitoring.
 
-**Alternativas evaluadas**:
-| Opción | Pros | Contras |
-|--------|------|---------|
-| **FastAPI + Streamlit** | API auto-documentada, dashboard rápido en Python | Dos servicios separados |
-| Flask + Dash | Todo en uno | Flask más básico, Dash más complejo |
-| Superset | Dashboard potente | Muy pesado para un proyecto personal |
-| Metabase | Fácil de usar, SQL directo | No demuestra habilidades de código |
+**Alternatives evaluated**:
+| Option | Pros | Cons |
+|--------|------|------|
+| **Apache Airflow** | Industry standard, Python DAGs, web UI | Resource-heavy, complex setup |
+| Prefect | Modern API, more Pythonic | Lower job market demand |
+| Dagster | Asset-based, good testing | Smaller community |
+| Cron + scripts | Simple, no dependencies | No UI, no retries, no dependency management |
 
-**Decisión**: FastAPI (API) + Streamlit (dashboard)  
-**Justificación**: FastAPI genera documentación Swagger automática. Streamlit
-permite prototipar dashboards rápidamente. La separación API/dashboard
-aprovecha arquitectura de microservicios.
+**Decision**: Apache Airflow 2.9
+**Rationale**: Airflow is the most in-demand orchestration tool in Data
+Engineering job postings. The web UI enables visual pipeline monitoring.
 
 ---
 
-## ADR-006: Custom validators vs Great Expectations
+## ADR-004: MinIO as Local Storage
 
-**Fecha**: 2026-02
-**Estado**: Aceptado
+**Date**: 2026-02
+**Status**: Accepted
 
-**Contexto**:
-Necesitamos validar la calidad de datos en cada capa del lakehouse.
+**Context**:
+The project needs S3-compatible object storage for local development.
 
-**Decisión**: Custom validators ejecutados en Spark  
-**Justificación**: Great Expectations tiene conflictos de dependencias
-con el stack actual (protobuf vs Airflow, PyArrow vs PySpark). Los
-custom validators ejecutan SQL directamente en Spark sobre las tablas
-Iceberg, sin dependencias adicionales y con el mismo nivel de validación.
+**Decision**: MinIO
+**Rationale**: 100% compatible with the AWS S3 API. Code runs identically
+on local (MinIO) and production (AWS S3) environments -- only credentials
+and the endpoint change.
+
+---
+
+## ADR-005: FastAPI + Streamlit as Serving Layer
+
+**Date**: 2026-02
+**Status**: Accepted
+
+**Context**:
+Gold layer data must be accessible for analysis without writing SQL directly.
+
+**Alternatives evaluated**:
+| Option | Pros | Cons |
+|--------|------|------|
+| **FastAPI + Streamlit** | Auto-documented API, rapid Python dashboard | Two separate services |
+| Flask + Dash | All-in-one | Flask more basic, Dash more complex |
+| Superset | Powerful dashboards | Too heavy for a personal project |
+| Metabase | Easy to use, direct SQL | Does not demonstrate coding skills |
+
+**Decision**: FastAPI (API) + Streamlit (dashboard)
+**Rationale**: FastAPI generates automatic Swagger documentation. Streamlit
+enables rapid dashboard prototyping. The API/dashboard separation
+demonstrates a microservices architecture.
+
+---
+
+## ADR-006: Custom Validators vs Great Expectations
+
+**Date**: 2026-02
+**Status**: Accepted
+
+**Context**:
+Data quality validation is needed at each lakehouse layer.
+
+**Decision**: Custom validators executed in Spark
+**Rationale**: Great Expectations has dependency conflicts with the current
+stack (protobuf vs Airflow, PyArrow vs PySpark). Custom validators execute
+SQL directly in Spark on Iceberg tables, with no additional dependencies
+and equivalent validation coverage.
