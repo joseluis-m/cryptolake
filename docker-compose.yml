@@ -1,5 +1,5 @@
 # ============================================================
-# CryptoLake — Docker Compose
+# CryptoLake -- Docker Compose
 # ============================================================
 # Start:  docker compose up -d --build
 # Stop:   docker compose down
@@ -163,7 +163,7 @@ services:
       --memory 2g
       --cores 2
 
-  # Spark Thrift Server — JDBC entry point for dbt and SQL tools
+  # Spark Thrift Server -- JDBC entry point for dbt and SQL tools
   spark-thrift:
     build:
       context: ./docker/spark
@@ -211,6 +211,44 @@ services:
       timeout: 5s
       retries: 5
 
+  # Dedicated init service: migrates DB and creates admin user
+  # before the webserver or scheduler start.
+  airflow-init:
+    build:
+      context: ./docker/airflow
+      dockerfile: Dockerfile
+    container_name: cryptolake-airflow-init
+    user: root
+    environment:
+      <<: *common-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__WEBSERVER__SECRET_KEY: cryptolake-secret-key
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./src/orchestration/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - airflow-logs:/opt/airflow/logs
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    command: >
+      bash -c "
+      echo 'Running Airflow DB migrations...' &&
+      airflow db migrate &&
+      echo 'Creating admin user...' &&
+      airflow users create
+        --username admin
+        --password admin
+        --firstname Admin
+        --lastname User
+        --role Admin
+        --email admin@cryptolake.dev || true &&
+      echo 'Airflow init complete.'
+      "
+    restart: "no"
+
   airflow-webserver:
     build:
       context: ./docker/airflow
@@ -233,16 +271,9 @@ services:
       - airflow-logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      airflow-postgres:
-        condition: service_healthy
-    command: >
-      bash -c "
-      airflow db migrate &&
-      airflow users create --username admin --password admin
-        --firstname Admin --lastname User --role Admin
-        --email admin@cryptolake.dev || true &&
-      airflow webserver
-      "
+      airflow-init:
+        condition: service_completed_successfully
+    command: airflow webserver
 
   airflow-scheduler:
     build:
@@ -263,8 +294,8 @@ services:
       - airflow-logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      airflow-postgres:
-        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     command: airflow scheduler
 
   # ==========================================================
@@ -298,8 +329,13 @@ services:
     volumes:
       - ./src/serving/dashboard:/app
     command: >
-      bash -c "pip install streamlit requests plotly pandas &&
-      streamlit run /app/app.py --server.address 0.0.0.0"
+      bash -c "
+      pip install --quiet streamlit requests plotly pandas &&
+      echo 'Waiting for app.py...' &&
+      while [ ! -f /app/app.py ]; do sleep 1; done &&
+      streamlit run /app/app.py --server.address 0.0.0.0
+      "
+    restart: unless-stopped
     depends_on:
       - api
 
