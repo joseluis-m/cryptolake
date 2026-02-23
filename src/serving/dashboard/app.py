@@ -8,7 +8,6 @@ Docker: automatically served at http://localhost:8501
 """
 
 import os
-from datetime import date, timedelta
 
 import pandas as pd
 import plotly.express as px
@@ -143,11 +142,17 @@ with st.sidebar:
         st.success("API Connected")
     else:
         st.error("API Unreachable")
-        st.info("Ensure the pipeline has run:\n```\nmake pipeline\n```")
+        st.info(
+            "Ensure the pipeline has run:\n"
+            "```\nmake pipeline\n```"
+        )
         st.stop()
 
     st.divider()
-    st.caption("Stack: Apache Iceberg / Spark / dbt / Airflow / FastAPI / Streamlit")
+    st.caption(
+        "Stack: Apache Iceberg / Spark / dbt / "
+        "Airflow / FastAPI / Streamlit"
+    )
 
 # -- Header -------------------------------------------------
 
@@ -155,14 +160,14 @@ st.title("CryptoLake -- Crypto Analytics Dashboard")
 
 # -- Tab layout ---------------------------------------------
 
-tab_overview, tab_prices, tab_comparison, tab_sentiment, tab_signals = st.tabs(
-    [
+tab_overview, tab_prices, tab_comparison, tab_sentiment, tab_signals = (
+    st.tabs([
         "Market Overview",
         "Price Analysis",
         "Coin Comparison",
         "Fear & Greed",
         "Trading Signals",
-    ]
+    ])
 )
 
 # ============================================================
@@ -428,9 +433,13 @@ with tab_comparison:
                     if len(cdf) > 0:
                         base = cdf["price_usd"].iloc[0]
                         if base > 0:
-                            cdf["normalized"] = cdf["price_usd"] / base * 100
+                            cdf["normalized"] = (
+                                cdf["price_usd"] / base * 100
+                            )
                             cdf["coin"] = cid
-                            frames.append(cdf[["price_date", "normalized", "coin"]])
+                            frames.append(
+                                cdf[["price_date", "normalized", "coin"]]
+                            )
 
             if frames:
                 combined = pd.concat(frames, ignore_index=True)
@@ -541,7 +550,11 @@ with tab_sentiment:
 
         with col_dist:
             st.subheader("Sentiment Distribution")
-            dist_df = fg_df["classification"].value_counts().reset_index()
+            dist_df = (
+                fg_df["classification"]
+                .value_counts()
+                .reset_index()
+            )
             dist_df.columns = ["classification", "days"]
             fig_pie = px.pie(
                 dist_df,
@@ -604,7 +617,9 @@ with tab_signals:
                         "Price (USD)": latest.get("price_usd"),
                         "1d Change %": latest.get("price_change_pct_1d"),
                         "MA30 Signal": latest.get("ma30_signal", "N/A"),
-                        "Sentiment": latest.get("market_sentiment", "N/A"),
+                        "Sentiment": latest.get(
+                            "market_sentiment", "N/A"
+                        ),
                         "F&G Value": latest.get("fear_greed_value"),
                     }
                 )
@@ -633,7 +648,11 @@ with tab_signals:
                 sc1, sc2 = st.columns(2)
 
                 with sc1:
-                    ma30_dist = raw_signals["MA30 Signal"].value_counts().reset_index()
+                    ma30_dist = (
+                        raw_signals["MA30 Signal"]
+                        .value_counts()
+                        .reset_index()
+                    )
                     ma30_dist.columns = ["signal", "count"]
                     signal_colors = {
                         "ABOVE_MA30": COLOR_POSITIVE,
@@ -659,7 +678,11 @@ with tab_signals:
                     st.plotly_chart(fig_sig, use_container_width=True)
 
                 with sc2:
-                    sent_dist = raw_signals["Sentiment"].value_counts().reset_index()
+                    sent_dist = (
+                        raw_signals["Sentiment"]
+                        .value_counts()
+                        .reset_index()
+                    )
                     sent_dist.columns = ["sentiment", "count"]
                     fig_sent = px.bar(
                         sent_dist,
