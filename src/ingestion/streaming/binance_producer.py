@@ -35,7 +35,7 @@ BINANCE_SYMBOLS = {
     "uniusdt": "uniswap",
     "aaveusdt": "aave",
     "taousdt": "bittensor",
-    "ondousdt": "ondo",
+    "ondousdt": "ondo-finance",
 }
 
 BINANCE_WS_URL = "wss://stream.binance.com:9443/ws"
