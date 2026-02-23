@@ -87,8 +87,12 @@ def process_prices(spark: SparkSession):
         .withColumn("volume_24h_usd", when(col("volume_24h_usd") > 0, col("volume_24h_usd")))
         .withColumn("_processed_at", current_timestamp())
         .select(
-            "coin_id", "price_date", "price_usd",
-            "market_cap_usd", "volume_24h_usd", "_processed_at",
+            "coin_id",
+            "price_date",
+            "price_usd",
+            "market_cap_usd",
+            "volume_24h_usd",
+            "_processed_at",
         )
     )
 
@@ -131,8 +135,10 @@ def process_fear_greed(spark: SparkSession):
         .filter(col("_row_num") == 1)
         .withColumn("_processed_at", current_timestamp())
         .select(
-            "index_date", col("value").alias("fear_greed_value"),
-            "classification", "_processed_at",
+            "index_date",
+            col("value").alias("fear_greed_value"),
+            "classification",
+            "_processed_at",
         )
     )
 
