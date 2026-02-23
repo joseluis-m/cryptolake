@@ -1,24 +1,19 @@
 {#
-  ============================================================
-  Macro: create_table_as (override para Spark + Iceberg)
-  ============================================================
-  Problema: El catálogo REST de Iceberg (tabulario) ignora el
-  LOCATION del namespace. Sin esta macro, todas las tablas que
-  dbt crea irían al bucket por defecto (cryptolake-bronze).
+  Macro: create_table_as (override for Spark + Iceberg)
 
-  Solución: Inyectamos LOCATION explícito en cada CREATE TABLE
-  apuntando al bucket correcto basándonos en el schema del modelo.
+  The Iceberg REST catalog ignores the LOCATION set on the namespace.
+  Without this macro, all dbt tables would land in the default bucket
+  (cryptolake-bronze). We inject an explicit LOCATION pointing to the
+  correct bucket based on the model's schema.
 
-  Ejemplo para un modelo en schema "gold":
+  Example for a model in schema "gold":
     CREATE OR REPLACE TABLE gold.dim_coins
     USING iceberg
     LOCATION 's3://cryptolake-gold/dim_coins'
     AS SELECT ...
-  ============================================================
 #}
 
 {% macro spark__create_table_as(temporary, relation, compiled_code) -%}
-  {# Construimos el nombre del bucket a partir del schema #}
   {%- set bucket = 'cryptolake-' ~ relation.schema -%}
 
   create or replace table {{ relation }}
