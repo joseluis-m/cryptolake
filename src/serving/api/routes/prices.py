@@ -1,6 +1,4 @@
-"""
-Endpoints de precios — consultan fact_market_daily.
-"""
+"""Price endpoints querying fact_market_daily."""
 
 from datetime import date, timedelta
 from typing import Optional
@@ -18,19 +16,18 @@ async def get_prices(
     coin_id: str,
     start_date: Optional[date] = Query(
         default=None,
-        description="Fecha inicio (default: 30 días atrás)",
+        description="Start date (default: 30 days ago)",
     ),
     end_date: Optional[date] = Query(
         default=None,
-        description="Fecha fin (default: hoy)",
+        description="End date (default: today)",
     ),
     limit: int = Query(default=100, le=1000),
 ):
-    """
-    Precios históricos de una criptomoneda.
+    """Historical prices for a cryptocurrency.
 
-    Incluye métricas calculadas: moving averages, volatilidad,
-    señales técnicas y sentimiento del mercado.
+    Includes computed metrics: moving averages, volatility,
+    technical signals, and market sentiment.
     """
     if not end_date:
         end_date = date.today()
