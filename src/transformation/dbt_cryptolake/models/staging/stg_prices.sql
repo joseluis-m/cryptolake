@@ -1,22 +1,6 @@
--- ============================================================
 -- Staging: stg_prices
--- ============================================================
--- Interfaz limpia sobre silver.daily_prices.
---
--- Añade dos campos calculados:
---   - prev_day_price: precio del día anterior (con LAG window function)
---   - price_change_pct_1d: cambio porcentual respecto al día anterior
---
--- LAG() es una window function que "mira hacia atrás" en los datos:
---   LAG(columna) OVER (PARTITION BY grupo ORDER BY orden)
---   = "dame el valor de 'columna' en la fila anterior dentro del mismo 'grupo'"
---
--- Ejemplo con Bitcoin:
---   Fecha       Precio    LAG(precio)  Change %
---   2024-01-01  42000     NULL         NULL (no hay día anterior)
---   2024-01-02  43000     42000        +2.38%
---   2024-01-03  41500     43000        -3.49%
--- ============================================================
+-- Clean interface over silver.daily_prices.
+-- Adds prev_day_price (via LAG) and price_change_pct_1d (day-over-day %).
 
 WITH source AS (
     SELECT * FROM {{ source('silver', 'daily_prices') }}
@@ -30,20 +14,17 @@ with_lag AS (
         market_cap_usd,
         volume_24h_usd,
         _processed_at,
-
-        -- LAG: precio del día anterior para esta misma moneda
+        -- Previous day's price for the same coin
         LAG(price_usd) OVER (
             PARTITION BY coin_id ORDER BY price_date
         ) AS prev_day_price
-
     FROM source
     WHERE price_usd > 0
 )
 
 SELECT
     *,
-    -- Cálculo del cambio porcentual día a día
-    -- Fórmula: ((nuevo - anterior) / anterior) * 100
+    -- Day-over-day change: ((new - prev) / prev) * 100
     CASE
         WHEN prev_day_price IS NOT NULL AND prev_day_price > 0
         THEN ROUND(((price_usd - prev_day_price) / prev_day_price) * 100, 4)
