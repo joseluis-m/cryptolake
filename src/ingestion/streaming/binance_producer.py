@@ -1,16 +1,13 @@
 """
-Productor Kafka: Binance WebSocket → Kafka topic "prices.realtime"
+Kafka Producer: Binance WebSocket -> Kafka topic "prices.realtime"
 
-¿Cómo funciona?
-1. Se conecta al WebSocket público de Binance (gratis, sin API key)
-2. Se suscribe al stream "aggTrade" (trades agregados) de cada par
-3. Cada vez que alguien compra/vende BTC, ETH, etc., Binance nos envía el precio
-4. Transformamos el mensaje al formato de CryptoLake
-5. Lo publicamos en el topic de Kafka "prices.realtime"
+Connects to Binance's public WebSocket (no API key needed), subscribes to
+aggTrade streams for tracked pairs, transforms messages to CryptoLake format,
+and publishes them to Kafka.
 
-Binance envía ~50-200 mensajes por SEGUNDO dependiendo de la actividad del mercado.
+Binance sends ~50-200 messages per SECOND depending on market activity.
 
-Para ejecutar:
+Usage:
     python -m src.ingestion.streaming.binance_producer
 """
 
@@ -25,47 +22,34 @@ from confluent_kafka import Producer
 
 from src.config.settings import settings
 
-# Configurar logger
 logger = structlog.get_logger()
 
-# ── Mapeo de símbolos ──────────────────────────────────────
-# Binance usa "BTCUSDT", nosotros usamos "bitcoin" (formato CoinGecko).
-# Este mapeo unifica los identificadores entre fuentes.
+# Binance symbol -> CoinGecko ID mapping.
+# Must match TRACKED_COINS in .env.example and settings.py.
 BINANCE_SYMBOLS = {
     "btcusdt": "bitcoin",
     "ethusdt": "ethereum",
     "solusdt": "solana",
-    "adausdt": "cardano",
-    "dotusdt": "polkadot",
+    "hypeusdt": "hyperliquid",
     "linkusdt": "chainlink",
-    "avaxusdt": "avalanche-2",
-    "maticusdt": "matic-network",
+    "uniusdt": "uniswap",
+    "aaveusdt": "aave",
+    "taousdt": "bittensor",
+    "ondousdt": "ondo",
 }
 
-# URL base del WebSocket de Binance
 BINANCE_WS_URL = "wss://stream.binance.com:9443/ws"
 
 
 def create_kafka_producer() -> Producer:
-    """
-    Crea y configura un productor de Kafka.
-
-    Configuraciones importantes:
-    - acks=all: El productor espera a que Kafka confirme que el mensaje
-      fue escrito en TODAS las réplicas. Máxima durabilidad.
-    - compression.type=snappy: Comprime los mensajes para reducir ancho
-      de banda y espacio en disco. Snappy es rápido con buena compresión.
-    - linger.ms=100: En vez de enviar cada mensaje individualmente,
-      espera 100ms para agrupar varios mensajes en un solo envío (batch).
-      Esto mejora el throughput a costa de 100ms de latencia extra.
-    """
+    """Create and configure a Kafka producer."""
     config = {
         "bootstrap.servers": settings.kafka_bootstrap_servers,
         "client.id": "binance-price-producer",
         "acks": "all",
         "compression.type": "snappy",
         "linger.ms": 100,
-        "batch.size": 65536,  # 64KB de batch máximo
+        "batch.size": 65536,
         "retries": 3,
         "retry.backoff.ms": 500,
     }
@@ -78,14 +62,7 @@ def create_kafka_producer() -> Producer:
 
 
 def delivery_callback(err, msg):
-    """
-    Callback que Kafka llama cuando un mensaje se entrega (o falla).
-
-    ¿Por qué un callback? Porque la producción es asíncrona.
-    Cuando llamas a producer.produce(), el mensaje se pone en un buffer
-    interno. Kafka lo envía en background y llama a este callback
-    cuando sabe si se entregó o no.
-    """
+    """Callback invoked on message delivery (or failure)."""
     if err:
         logger.error(
             "kafka_delivery_failed",
@@ -95,30 +72,15 @@ def delivery_callback(err, msg):
 
 
 def transform_binance_trade(raw_data: dict) -> dict:
-    """
-    Transforma un mensaje raw de Binance a nuestro schema estándar.
+    """Transform a raw Binance aggTrade message to CryptoLake format.
 
-    Binance aggTrade format (lo que recibimos):
-    {
-        "e": "aggTrade",     // tipo de evento
-        "s": "BTCUSDT",      // símbolo del par
-        "p": "67432.10",     // precio (STRING, no número)
-        "q": "0.123",        // cantidad
-        "T": 1708900000000,  // timestamp del trade (milisegundos)
-        "E": 1708900000001,  // timestamp del evento
-        "m": false           // ¿el comprador es el maker?
-    }
+    Binance aggTrade input:
+        {"e": "aggTrade", "s": "BTCUSDT", "p": "67432.10", "q": "0.123",
+         "T": 1708900000000, "E": 1708900000001, "m": false}
 
-    CryptoLake format (lo que producimos a Kafka):
-    {
-        "coin_id": "bitcoin",
-        "symbol": "BTCUSDT",
-        "price_usd": 67432.10,    // Convertido a float
-        "quantity": 0.123,
-        "trade_time_ms": 1708900000000,
-        "ingested_at": "2025-01-15T10:30:00+00:00",
-        "source": "binance_websocket"
-    }
+    CryptoLake output:
+        {"coin_id": "bitcoin", "symbol": "BTCUSDT", "price_usd": 67432.10,
+         "quantity": 0.123, "trade_time_ms": 1708900000000, ...}
     """
     symbol_lower = raw_data.get("s", "").lower()
     coin_id = BINANCE_SYMBOLS.get(symbol_lower, symbol_lower)
@@ -137,30 +99,17 @@ def transform_binance_trade(raw_data: dict) -> dict:
 
 
 async def stream_prices():
-    """
-    Loop principal: conecta a Binance WebSocket y produce a Kafka.
+    """Main loop: connect to Binance WebSocket and produce to Kafka.
 
-    Flujo:
-    1. Construye la URL combinando todos los streams que queremos
-    2. Se conecta al WebSocket
-    3. Por cada mensaje recibido:
-       a. Parsea el JSON
-       b. Transforma al formato CryptoLake
-       c. Produce a Kafka (con coin_id como key para particionado)
-    4. Si se desconecta, espera 5 segundos y reconecta
-
-    ¿Por qué coin_id como key de Kafka?
-    Kafka garantiza que mensajes con la misma key van a la misma partición.
-    Esto significa que todos los mensajes de "bitcoin" estarán en la misma
-    partición, manteniendo el orden temporal de los trades de BTC.
+    Uses coin_id as Kafka key to ensure all trades for the same coin
+    land in the same partition, preserving temporal ordering.
+    Reconnects automatically on disconnection with 5s backoff.
     """
-    # Importar websockets aquí para permitir importar el módulo sin tenerlo
     import websockets
 
     producer = create_kafka_producer()
 
-    # Construir URL con todos los streams combinados
-    # Formato: wss://stream.binance.com:9443/ws/btcusdt@aggTrade/ethusdt@aggTrade/...
+    # Combined stream URL: btcusdt@aggTrade/ethusdt@aggTrade/...
     streams = "/".join(f"{symbol}@aggTrade" for symbol in BINANCE_SYMBOLS.keys())
     ws_url = f"{BINANCE_WS_URL}/{streams}"
 
@@ -172,41 +121,33 @@ async def stream_prices():
 
     message_count = 0
 
-    # Loop de reconexión: si se cae, reconecta automáticamente
     while True:
         try:
             async with websockets.connect(ws_url) as websocket:
                 logger.info("websocket_connected", url=BINANCE_WS_URL)
 
-                # Loop de lectura: procesa cada mensaje que llega
                 async for raw_message in websocket:
                     try:
                         data = json.loads(raw_message)
 
-                        # Binance combined streams envuelve en {"stream": ..., "data": {...}}
+                        # Combined streams wrap data in {"stream": ..., "data": {...}}
                         if "data" in data:
                             data = data["data"]
 
-                        # Ignorar mensajes que no son trades
                         if data.get("e") != "aggTrade":
                             continue
 
-                        # Transformar al formato CryptoLake
                         record = transform_binance_trade(data)
 
-                        # Producir a Kafka
                         producer.produce(
                             topic=settings.kafka_topic_prices,
-                            # Key: determina la partición. Mismo coin → misma partición
                             key=record["coin_id"].encode("utf-8"),
-                            # Value: el mensaje completo en JSON
                             value=json.dumps(record).encode("utf-8"),
                             callback=delivery_callback,
                         )
 
                         message_count += 1
 
-                        # Cada 500 mensajes: flush (forzar envío) y log de progreso
                         if message_count % 500 == 0:
                             producer.flush()
                             logger.info(
@@ -228,23 +169,20 @@ async def stream_prices():
                 reconnecting_in="5s",
                 total_messages_so_far=message_count,
             )
-            # Flush mensajes pendientes antes de reconectar
             producer.flush()
             await asyncio.sleep(5)
 
 
 def main():
-    """Punto de entrada principal."""
+    """Entry point."""
     logger.info("binance_producer_starting")
 
-    # Manejar Ctrl+C limpiamente
     def signal_handler(sig, frame):
         logger.info("shutting_down", total_messages=0)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    # Ejecutar el loop de streaming
     asyncio.run(stream_prices())
 
 
