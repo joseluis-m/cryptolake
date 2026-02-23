@@ -1,4 +1,4 @@
-"""Tests unitarios para los schemas de la API."""
+"""Unit tests for API response schemas."""
 
 from datetime import date
 
@@ -12,7 +12,7 @@ from src.serving.api.models.schemas import (
 
 
 def test_price_response():
-    """PriceResponse se instancia correctamente con datos mínimos."""
+    """PriceResponse instantiates correctly with minimal data."""
     p = PriceResponse(
         coin_id="bitcoin",
         price_date=date(2025, 1, 15),
@@ -20,28 +20,28 @@ def test_price_response():
     )
     assert p.coin_id == "bitcoin"
     assert p.price_usd == 95000.0
-    assert p.moving_avg_7d is None  # Optional
+    assert p.moving_avg_7d is None
 
 
 def test_coin_response():
-    """CoinResponse se instancia correctamente."""
+    """CoinResponse instantiates correctly."""
     c = CoinResponse(
         coin_id="ethereum",
         all_time_high=4000.0,
         avg_price=3200.0,
     )
     assert c.coin_id == "ethereum"
-    assert c.first_tracked_date is None  # Optional
+    assert c.first_tracked_date is None
 
 
 def test_market_overview():
-    """MarketOverview con datos mínimos."""
+    """MarketOverview with minimal data."""
     m = MarketOverview(total_coins=8, total_fact_rows=5000)
     assert m.total_coins == 8
 
 
 def test_fear_greed_response():
-    """FearGreedResponse con todos los campos."""
+    """FearGreedResponse with all fields."""
     fg = FearGreedResponse(
         index_date=date(2025, 2, 1),
         fear_greed_value=25,
@@ -52,7 +52,7 @@ def test_fear_greed_response():
 
 
 def test_health_response():
-    """HealthResponse healthy."""
+    """HealthResponse with healthy status."""
     h = HealthResponse(
         status="healthy",
         thrift_connected=True,
