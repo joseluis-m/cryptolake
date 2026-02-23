@@ -1,11 +1,7 @@
--- ============================================================
--- Test singular: assert_positive_prices
--- ============================================================
--- Verifica que no hay precios negativos o cero en la fact table.
--- Un precio <= 0 indicaría datos corruptos o un error en la ingesta.
---
--- Si esta consulta devuelve filas, el test FALLA.
--- ============================================================
+-- Singular test: assert_positive_prices
+-- Verifies no negative or zero prices exist in the fact table.
+-- A price <= 0 would indicate corrupted data or an ingestion error.
+-- Test FAILS if this query returns any rows.
 
 SELECT
     coin_id,
