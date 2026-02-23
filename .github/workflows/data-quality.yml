@@ -1,9 +1,10 @@
 # ============================================================
 # Data Quality Checks — CryptoLake
 # ============================================================
-# Se ejecuta manualmente o con schedule.
-# Útil para verificar la calidad de datos en un entorno staging.
+# Manual trigger workflow for validating data quality.
+# Useful for verifying data integrity in staging environments.
 # ============================================================
+
 name: Data Quality
 
 on:
