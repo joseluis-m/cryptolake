@@ -86,7 +86,10 @@ def process_prices(spark: SparkSession):
         .withColumn("market_cap_usd", when(col("market_cap_usd") > 0, col("market_cap_usd")))
         .withColumn("volume_24h_usd", when(col("volume_24h_usd") > 0, col("volume_24h_usd")))
         .withColumn("_processed_at", current_timestamp())
-        .select("coin_id", "price_date", "price_usd", "market_cap_usd", "volume_24h_usd", "_processed_at")
+        .select(
+            "coin_id", "price_date", "price_usd",
+            "market_cap_usd", "volume_24h_usd", "_processed_at",
+        )
     )
 
     total_clean = cleaned_df.count()
@@ -127,7 +130,10 @@ def process_fear_greed(spark: SparkSession):
         .withColumn("_row_num", row_number().over(dedup_window))
         .filter(col("_row_num") == 1)
         .withColumn("_processed_at", current_timestamp())
-        .select("index_date", col("value").alias("fear_greed_value"), "classification", "_processed_at")
+        .select(
+            "index_date", col("value").alias("fear_greed_value"),
+            "classification", "_processed_at",
+        )
     )
 
     silver_df.createOrReplaceTempView("fg_updates")
