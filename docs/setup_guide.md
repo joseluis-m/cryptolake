@@ -1,95 +1,102 @@
-# Setup Guide — CryptoLake
+# Setup Guide -- CryptoLake
 
-Guía completa para levantar el proyecto desde cero.
+Complete guide to set up the project from scratch.
 
-## Requisitos previos
+## Prerequisites
 
-| Software | Versión mínima | Verificar con |
-|----------|---------------|---------------|
+| Software | Minimum Version | Verify with |
+|----------|----------------|-------------|
 | Docker Desktop | 24+ | `docker --version` |
 | Docker Compose | v2+ | `docker compose version` |
 | Python | 3.11+ | `python3 --version` |
-| Make | cualquiera | `make --version` |
-| Git | cualquiera | `git --version` |
+| Make | any | `make --version` |
+| Git | any | `git --version` |
 
-**Recursos Docker recomendados**: 6 CPU cores, 8 GB RAM, 40 GB disk.
+**Recommended Docker resources**: 6 CPU cores, 8 GB RAM, 40 GB disk.
 
-## Paso 1: Clonar y configurar
+## Step 1: Clone and Configure
+
 ```bash
-git clone https://github.com/tu-usuario/cryptolake.git
+git clone https://github.com/your-user/cryptolake.git
 cd cryptolake
 cp .env.example .env
 ```
 
-## Paso 2: Levantar servicios
+## Step 2: Start Services
+
 ```bash
 make up
 ```
 
-Esto levanta 12+ contenedores. Espera ~60 segundos a que todos estén healthy.
+This starts 12+ containers. Wait approximately 60 seconds for all services
+to become healthy.
 
-Verifica con:
+Verify with:
+
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-## Paso 3: Ejecutar el pipeline
-```bash
-# Pipeline completo paso a paso
-make init-namespaces    # Crear namespaces Iceberg
-make bronze-load        # Ingestar datos de APIs → Bronze
-make silver-transform   # Bronze → Silver (limpiar + deduplicar)
-make dbt-run            # Silver → Gold (star schema con dbt)
-make dbt-test           # Validar modelos dbt
-make quality-check      # Quality checks (15+ validaciones)
+## Step 3: Run the Pipeline
 
-# O todo junto:
+```bash
+# Full pipeline step by step
+make init-namespaces    # Create Iceberg namespaces
+make bronze-load        # Ingest data from APIs -> Bronze
+make silver-transform   # Bronze -> Silver (clean + deduplicate)
+make dbt-run            # Silver -> Gold (star schema with dbt)
+make dbt-test           # Validate dbt models
+make quality-check      # Quality checks (15+ validations)
+
+# Or all at once:
 make pipeline
 ```
 
-## Paso 4: Verificar resultados
+## Step 4: Verify Results
+
 ```bash
-# API REST
+# REST API
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/analytics/market-overview
 
 # Dashboard
 open http://localhost:8501
 
-# Airflow
+# Airflow UI
 open http://localhost:8083   # admin / admin
 ```
 
-## Paso 5: Desarrollo local
+## Step 5: Local Development
+
 ```bash
-# Crear virtualenv Python
+# Create Python virtualenv
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Instalar herramientas de desarrollo
+# Install development tools
 pip install -e ".[dev]"
 
 # Linting
 ruff check src/ tests/
 ruff format src/ tests/
 
-# Tests
+# Unit tests
 pytest tests/unit/ -v
 
-# dbt compile (verificar SQL sin ejecutar)
+# dbt compile (verify SQL without executing)
 make dbt-run
 ```
 
 ## Troubleshooting
 
 **Docker: "Not enough memory"**
-→ Docker Desktop → Settings → Resources → Asignar al menos 8 GB RAM.
+Docker Desktop -> Settings -> Resources -> Allocate at least 8 GB RAM.
 
-**dbt: "Permission denied" en logs/ o target/**
-→ `sudo chown -R $USER:$USER src/transformation/dbt_cryptolake/logs/ src/transformation/dbt_cryptolake/target/`
+**dbt: "Permission denied" on logs/ or target/**
+`sudo chown -R $USER:$USER src/transformation/dbt_cryptolake/logs/ src/transformation/dbt_cryptolake/target/`
 
 **Spark Thrift: "Connection refused"**
-→ Verificar que el contenedor está corriendo: `docker logs cryptolake-spark-thrift 2>&1 | tail -10`
+Verify the container is running: `docker logs cryptolake-spark-thrift 2>&1 | tail -10`
 
-**Ruff: E402 errors en scripts Spark**
-→ Configurado en `ruff.toml` como ignorados (son docstrings antes de imports).
+**Ruff: E402 errors in Spark scripts**
+Configured in `ruff.toml` as ignored (module-level docstrings before imports).
