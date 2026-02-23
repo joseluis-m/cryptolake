@@ -1,14 +1,8 @@
 """
-Clase base abstracta para extractores batch.
+Abstract base class for batch extractors.
 
-Patrón Template Method:
-    run() define el flujo: extract → validate → enrich
-    Cada subclase implementa extract() y opcionalmente validate().
-
-¿Por qué este patrón?
-Todos nuestros extractores (CoinGecko, Fear & Greed, y futuros) siguen
-el mismo flujo: extraer datos → validar → enriquecer con metadata.
-En vez de repetir esa lógica, la centralizamos aquí.
+Template Method pattern: run() defines the flow (extract -> validate -> enrich).
+Each subclass implements extract() and optionally overrides validate().
 """
 
 from abc import ABC, abstractmethod
@@ -22,24 +16,19 @@ logger = structlog.get_logger()
 
 
 class BaseExtractor(ABC):
-    """
-    Clase base para todos los extractores de datos batch.
+    """Base class for all batch data extractors.
 
-    Uso:
-        class MiExtractor(BaseExtractor):
+    Usage:
+        class MyExtractor(BaseExtractor):
             def extract(self) -> list[dict]:
-                # Lógica específica de extracción
-                return [{"dato": "valor"}]
+                return [{"key": "value"}]
 
-        extractor = MiExtractor("mi_fuente")
-        datos = extractor.run()  # extract → validate → enrich
+        extractor = MyExtractor("my_source")
+        data = extractor.run()  # extract -> validate -> enrich
     """
 
     def __init__(self, source_name: str):
         self.source_name = source_name
-
-        # requests.Session reutiliza la conexión HTTP entre requests.
-        # Es más eficiente que crear una nueva conexión cada vez.
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -49,20 +38,13 @@ class BaseExtractor(ABC):
         )
 
     def run(self) -> list[dict[str, Any]]:
-        """
-        Ejecuta el pipeline completo: extract → validate → enrich.
-
-        Returns:
-            Lista de registros listos para cargar en Bronze.
-        """
+        """Execute the full pipeline: extract -> validate -> enrich."""
         logger.info("extraction_started", source=self.source_name)
         start_time = datetime.now(timezone.utc)
 
-        # Paso 1: Extraer datos de la fuente
         raw_data = self.extract()
         logger.info("extraction_raw", source=self.source_name, raw_count=len(raw_data))
 
-        # Paso 2: Validar (filtrar registros inválidos)
         validated_data = self.validate(raw_data)
         logger.info(
             "extraction_validated",
@@ -71,7 +53,6 @@ class BaseExtractor(ABC):
             dropped=len(raw_data) - len(validated_data),
         )
 
-        # Paso 3: Enriquecer con metadata de ingesta
         enriched_data = self.enrich(validated_data)
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -86,28 +67,15 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def extract(self) -> list[dict[str, Any]]:
-        """
-        Extrae datos de la fuente.
-        Debe ser implementado por cada subclase.
-        """
+        """Extract data from the source. Must be implemented by subclasses."""
         ...
 
     def validate(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """
-        Validación básica: filtra registros None.
-        Las subclases pueden override para validación específica.
-        """
+        """Basic validation: filter out None records. Override for custom logic."""
         return [record for record in data if record is not None]
 
     def enrich(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """
-        Añade metadata de ingesta a cada registro.
-
-        _ingested_at: Cuándo se extrajeron los datos
-        _source: De dónde vienen
-
-        El prefijo _ indica "campo de metadata" (convención en data engineering).
-        """
+        """Add ingestion metadata (_ingested_at, _source) to each record."""
         now = datetime.now(timezone.utc).isoformat()
         for record in data:
             record["_ingested_at"] = now
