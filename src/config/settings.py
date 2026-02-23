@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # -- Tracked coins (CoinGecko IDs) --
     # Canonical list defined in .env.example
     tracked_coins: str | list[str] = (
-        "bitcoin,ethereum,solana,hyperliquid,chainlink,uniswap,aave,bittensor,ondo"
+        "bitcoin,ethereum,solana,hyperliquid,chainlink,uniswap,aave,bittensor,ondo-finance"
     )
 
     # -- S3 Buckets --
