@@ -1,1 +1,1 @@
-"""Pytest fixtures para CryptoLake."""
+"""Pytest fixtures for CryptoLake."""
