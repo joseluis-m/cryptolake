@@ -1,32 +1,23 @@
-# ============================================================
-# profiles.yml — Configuración de conexión de dbt
-# ============================================================
-# Define CÓMO dbt se conecta a Spark Thrift Server.
-# Hay dos "targets" (entornos):
-#   - dev:  desde tu Mac (localhost:10000)
-#   - prod: desde dentro de Docker (spark-thrift:10000)
+# profiles.yml -- dbt connection configuration
 #
-# El target "dev" es el que usarás ahora para desarrollo.
-# El target "prod" lo usará Airflow en la Fase 6.
-# ============================================================
+# Targets:
+#   dev:  local development (localhost:10000)
+#   prod: Docker environment (spark-thrift:10000, used by Airflow)
+#   ci:   compile-only, no Spark connection required
 
 cryptolake:
   target: dev
 
   outputs:
-    # Desarrollo: ejecutas dbt desde tu Mac
     dev:
       type: spark
       method: thrift
       host: localhost
       port: 10000
       schema: gold
-      # threads: cuántas consultas SQL ejecuta dbt en paralelo.
-      # 1 es seguro para desarrollo local.
       auth: NOSASL
       threads: 1
 
-    # Producción: Airflow ejecuta dbt desde dentro de Docker
     prod:
       type: spark
       method: thrift
@@ -36,7 +27,6 @@ cryptolake:
       auth: NOSASL
       threads: 2
 
-    # CI: solo compila SQL sin conectar a Spark
     ci:
       type: spark
       method: thrift
