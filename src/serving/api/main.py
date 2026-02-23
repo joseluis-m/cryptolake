@@ -1,14 +1,14 @@
 """
-API REST de CryptoLake.
+CryptoLake REST API.
 
 Endpoints:
-- GET /api/v1/prices/{coin_id}           — Precios históricos
-- GET /api/v1/analytics/market-overview   — Overview del mercado
-- GET /api/v1/analytics/coins             — Lista de criptomonedas
-- GET /api/v1/analytics/fear-greed        — Fear & Greed histórico
-- GET /api/v1/health                      — Health check
+- GET /api/v1/prices/{coin_id}            -- Historical prices
+- GET /api/v1/analytics/market-overview   -- Market overview
+- GET /api/v1/analytics/coins             -- Cryptocurrency list
+- GET /api/v1/analytics/fear-greed        -- Historical Fear & Greed
+- GET /api/v1/health                      -- Health check
 
-Documentación automática:
+Documentation:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc:      http://localhost:8000/redoc
 """
@@ -42,9 +42,9 @@ REDOC_HTML = """
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    print("🚀 CryptoLake API starting...")
+    print("CryptoLake API starting...")
     yield
-    print("👋 CryptoLake API shutting down...")
+    print("CryptoLake API shutting down...")
 
 
 app = FastAPI(
@@ -73,7 +73,7 @@ app.include_router(health.router, prefix="/api/v1")
 
 @app.get("/redoc", include_in_schema=False)
 async def custom_redoc():
-    """ReDoc con CDN fijado a versión estable."""
+    """ReDoc with pinned stable CDN version."""
     return HTMLResponse(REDOC_HTML.format(spec_url=app.openapi_url))
 
 
