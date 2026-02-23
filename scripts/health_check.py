@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Health check: verifica que todos los servicios de CryptoLake están running.
+Health check: verifies all CryptoLake services are running.
 
-Uso:
+Usage:
     python scripts/health_check.py
 """
+
 import subprocess
 import sys
-
 
 SERVICES = {
     "cryptolake-minio": "MinIO (Storage)",
@@ -24,12 +24,13 @@ SERVICES = {
 
 
 def check_services():
-    print("🔍 CryptoLake Health Check")
+    print("CryptoLake Health Check")
     print("=" * 50)
 
     result = subprocess.run(
         ["docker", "ps", "--format", "{{.Names}}"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     running = set(result.stdout.strip().split("\n"))
 
@@ -37,14 +38,13 @@ def check_services():
     total = len(SERVICES)
 
     for container, label in SERVICES.items():
+        status = "OK" if container in running else "NOT RUNNING"
+        print(f"  [{status:>11}]  {label}")
         if container in running:
-            print(f"  ✅ {label:<30} running")
             healthy += 1
-        else:
-            print(f"  ❌ {label:<30} NOT RUNNING")
 
     print("=" * 50)
-    print(f"  {'✅' if healthy == total else '⚠️'} {healthy}/{total} services running")
+    print(f"  {healthy}/{total} services running")
 
     if healthy < total:
         print("\n  Tip: run 'make up' to start all services")
