@@ -1,43 +1,32 @@
-# ============================================================
-# schema.yml — Tests y documentación de los modelos marts
-# ============================================================
-# Los tests genéricos de dbt se declaran junto a cada columna.
-# dbt genera y ejecuta la consulta SQL automáticamente.
+# schema.yml -- Tests and documentation for marts models
 #
-# Tipos de tests genéricos:
-#   - not_null: Verifica que la columna no tiene valores NULL
-#   - unique: Verifica que no hay duplicados
-#   - accepted_values: Verifica que los valores están en una lista
-#   - relationships: Verifica integridad referencial (FK)
-#
-# Un test PASA si la consulta devuelve 0 filas.
-# Un test FALLA si la consulta devuelve 1 o más filas.
-# ============================================================
+# Generic dbt tests: not_null, unique, accepted_values, relationships.
+# A test PASSES if the generated query returns 0 rows.
 
 version: 2
 
 models:
   - name: fact_market_daily
-    description: "Tabla de hechos con métricas de mercado crypto diarias. Granularidad: 1 coin × 1 día."
+    description: "Daily crypto market metrics fact table. Granularity: 1 coin x 1 day."
     columns:
       - name: coin_id
-        description: "Identificador de la criptomoneda"
+        description: "Cryptocurrency identifier"
         tests:
           - not_null
       - name: price_date
-        description: "Fecha del registro"
+        description: "Date of the record"
         tests:
           - not_null
       - name: price_usd
-        description: "Precio en USD"
+        description: "Price in USD"
         tests:
           - not_null
 
   - name: dim_coins
-    description: "Dimensión con estadísticas agregadas por criptomoneda (SCD Type 1)"
+    description: "Cryptocurrency dimension with aggregate statistics (SCD Type 1)"
     columns:
       - name: coin_id
-        description: "Identificador único de la criptomoneda"
+        description: "Unique cryptocurrency identifier"
         tests:
           - unique
           - not_null
@@ -49,10 +38,10 @@ models:
           - not_null
 
   - name: dim_dates
-    description: "Dimensión calendario con atributos temporales"
+    description: "Calendar dimension with temporal attributes"
     columns:
       - name: date_day
-        description: "Fecha (clave primaria)"
+        description: "Date (primary key)"
         tests:
           - unique
           - not_null
