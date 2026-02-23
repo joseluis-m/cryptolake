@@ -1,21 +1,18 @@
 {#
-  ============================================================
   Macro: generate_schema_name
-  ============================================================
-  Sobreescribe el comportamiento por defecto de dbt para
-  nombrar schemas.
 
-  Comportamiento por defecto de dbt:
+  Overrides dbt's default schema naming behavior.
+
+  Default dbt behavior:
     target.schema = "gold", custom_schema = "staging"
-    → genera: "gold_staging"  (¡no es lo que queremos!)
+    -> generates: "gold_staging" (not what we want)
 
-  Nuestro comportamiento:
-    custom_schema = "staging" → genera: "staging"
-    custom_schema = null      → genera: target.schema ("gold")
+  Our behavior:
+    custom_schema = "staging" -> generates: "staging"
+    custom_schema = null      -> generates: target.schema ("gold")
 
-  Esto hace que las tablas de staging vayan al namespace
-  "cryptolake.staging" y las de marts al namespace "cryptolake.gold".
-  ============================================================
+  This routes staging models to "cryptolake.staging" and
+  marts models to "cryptolake.gold".
 #}
 
 {% macro generate_schema_name(custom_schema_name, node) -%}
