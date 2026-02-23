@@ -17,7 +17,7 @@ Complete guide to set up the project from scratch.
 ## Step 1: Clone and Configure
 
 ```bash
-git clone https://github.com/your-user/cryptolake.git
+git clone https://github.com/joseluis-m/cryptolake.git
 cd cryptolake
 cp .env.example .env
 ```
