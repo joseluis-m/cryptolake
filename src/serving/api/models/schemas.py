@@ -1,11 +1,8 @@
 """
-Modelos de respuesta Pydantic — alineados con el star schema Gold.
+Pydantic response models aligned with the Gold star schema.
 
-Estos modelos definen la estructura exacta de las respuestas JSON
-de la API. FastAPI los usa para:
-- Validar la forma de los datos antes de enviarlos
-- Generar documentación OpenAPI automática
-- Serializar correctamente tipos como date/float
+FastAPI uses these models to validate response data, generate
+automatic OpenAPI documentation, and serialize types like date/float.
 """
 
 from datetime import date
@@ -15,7 +12,7 @@ from pydantic import BaseModel
 
 
 class PriceResponse(BaseModel):
-    """Una fila de fact_market_daily."""
+    """A row from fact_market_daily."""
 
     coin_id: str
     price_date: date
@@ -32,7 +29,7 @@ class PriceResponse(BaseModel):
 
 
 class CoinResponse(BaseModel):
-    """Una fila de dim_coins."""
+    """A row from dim_coins."""
 
     coin_id: str
     first_tracked_date: Optional[date] = None
@@ -46,7 +43,7 @@ class CoinResponse(BaseModel):
 
 
 class MarketOverview(BaseModel):
-    """Resumen general del mercado."""
+    """Aggregated market summary."""
 
     total_coins: int
     date_range_start: Optional[date] = None
@@ -57,7 +54,7 @@ class MarketOverview(BaseModel):
 
 
 class FearGreedResponse(BaseModel):
-    """Un dato del Fear & Greed Index."""
+    """A single Fear & Greed Index entry."""
 
     index_date: date
     fear_greed_value: int
@@ -65,7 +62,7 @@ class FearGreedResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Health check de la API."""
+    """API health check response."""
 
     status: str
     thrift_connected: bool
