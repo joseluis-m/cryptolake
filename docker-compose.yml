@@ -16,6 +16,14 @@ x-common-env: &common-env
   AWS_SECRET_ACCESS_KEY: cryptolake123
   AWS_REGION: us-east-1
 
+x-airflow-env: &airflow-env
+  <<: *common-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+  AIRFLOW__CORE__FERNET_KEY: ''
+  AIRFLOW__WEBSERVER__SECRET_KEY: cryptolake-secret-key
+  AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+
 services:
 
   # ==========================================================
@@ -211,21 +219,26 @@ services:
       timeout: 5s
       retries: 5
 
-  # Dedicated init service: migrates DB and creates admin user
-  # before the webserver or scheduler start.
+  # Dedicated init container following the official Airflow pattern.
+  # Uses the built-in entrypoint which handles DB migration and
+  # admin user creation via _AIRFLOW_* environment variables.
+  # Runs "airflow version" as final command, then exits with code 0.
   airflow-init:
     build:
       context: ./docker/airflow
       dockerfile: Dockerfile
     container_name: cryptolake-airflow-init
-    user: root
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        exec /entrypoint airflow version
     environment:
-      <<: *common-env
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-      AIRFLOW__CORE__FERNET_KEY: ''
-      AIRFLOW__WEBSERVER__SECRET_KEY: cryptolake-secret-key
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      <<: *airflow-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
     volumes:
       - ./src/orchestration/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -233,20 +246,7 @@ services:
     depends_on:
       airflow-postgres:
         condition: service_healthy
-    command: >
-      bash -c "
-      echo 'Running Airflow DB migrations...' &&
-      airflow db migrate &&
-      echo 'Creating admin user...' &&
-      airflow users create
-        --username admin
-        --password admin
-        --firstname Admin
-        --lastname User
-        --role Admin
-        --email admin@cryptolake.dev || true &&
-      echo 'Airflow init complete.'
-      "
+    user: "0:0"
     restart: "no"
 
   airflow-webserver:
@@ -258,13 +258,8 @@ services:
     ports:
       - "8083:8080"
     environment:
-      <<: *common-env
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-      AIRFLOW__CORE__FERNET_KEY: ''
-      AIRFLOW__WEBSERVER__SECRET_KEY: cryptolake-secret-key
+      <<: *airflow-env
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
       - ./src/orchestration/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -274,6 +269,12 @@ services:
       airflow-init:
         condition: service_completed_successfully
     command: airflow webserver
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   airflow-scheduler:
     build:
@@ -282,12 +283,7 @@ services:
     container_name: cryptolake-airflow-scheduler
     user: root
     environment:
-      <<: *common-env
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-      AIRFLOW__CORE__FERNET_KEY: ''
-      AIRFLOW__WEBSERVER__SECRET_KEY: cryptolake-secret-key
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      <<: *airflow-env
     volumes:
       - ./src/orchestration/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -319,22 +315,16 @@ services:
       - spark-thrift
 
   dashboard:
-    image: python:3.11-slim
+    build:
+      context: ./docker/dashboard
+      dockerfile: Dockerfile
     container_name: cryptolake-dashboard
     ports:
       - "8501:8501"
     environment:
-      <<: *common-env
       API_URL: http://api:8000
     volumes:
       - ./src/serving/dashboard:/app
-    command: >
-      bash -c "
-      pip install --quiet streamlit requests plotly pandas &&
-      echo 'Waiting for app.py...' &&
-      while [ ! -f /app/app.py ]; do sleep 1; done &&
-      streamlit run /app/app.py --server.address 0.0.0.0
-      "
     restart: unless-stopped
     depends_on:
       - api
