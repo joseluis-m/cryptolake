@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 """
-Spark Batch Job: Silver → Gold (Modelo Dimensional)
+Spark Batch Job: Silver -> Gold (Dimensional Model)
 
-Crea un star schema con:
-- dim_coins: Dimensión con estadísticas de cada criptomoneda
-- dim_dates: Dimensión calendario con atributos útiles para análisis
-- fact_market_daily: Tabla de hechos con métricas diarias y señales técnicas
+Builds a star schema with:
+- dim_coins: Dimension with aggregate statistics per cryptocurrency
+- dim_dates: Calendar dimension with date attributes for analytics
+- fact_market_daily: Fact table with daily metrics and technical signals
 
-Las métricas calculadas incluyen:
+Computed metrics:
 - Price change % (day-over-day)
 - Moving averages (7d, 30d)
-- Volatilidad (desviación estándar 7d)
-- Señal MA30 (precio por encima/debajo de media 30d)
-- Sentimiento de mercado (Fear & Greed)
+- Volatility (7d standard deviation)
+- MA30 signal (price above/below 30-day moving average)
+- Market sentiment (Fear & Greed Index)
 
-Ejecución:
+Usage:
     docker exec cryptolake-spark-master \
         /opt/spark/bin/spark-submit /opt/spark/work/src/processing/batch/silver_to_gold.py
 """
@@ -23,19 +23,8 @@ from pyspark.sql import SparkSession
 
 
 def build_dim_coins(spark: SparkSession):
-    """
-    Construye la dimensión dim_coins.
-
-    Tipo: SCD Type 1 (Slowly Changing Dimension Type 1)
-    Esto significa que cuando los datos cambian, simplemente sobrescribimos.
-    No guardamos historial de cambios en la dimensión.
-
-    ¿Cuándo usarías Type 2? Cuando necesitas saber el valor histórico.
-    Por ejemplo, si un coin cambia de nombre, querrías saber cómo se
-    llamaba cuando hiciste cierto análisis. Para nuestro caso, Type 1
-    es suficiente porque los stats se recalculan cada día.
-    """
-    print("\n📐 Construyendo dim_coins...")
+    """Build dim_coins dimension (SCD Type 1 -- overwrite on change)."""
+    print("\nBuilding dim_coins...")
 
     spark.sql("""
         CREATE OR REPLACE TABLE cryptolake.gold.dim_coins
@@ -44,52 +33,43 @@ def build_dim_coins(spark: SparkSession):
         AS
         SELECT
             coin_id,
-            
+
             -- Tracking
             MIN(price_date)                     AS first_tracked_date,
             MAX(price_date)                     AS last_tracked_date,
             COUNT(DISTINCT price_date)          AS total_days_tracked,
-            
+
             -- Price stats
             ROUND(MIN(price_usd), 6)            AS all_time_low,
             ROUND(MAX(price_usd), 2)            AS all_time_high,
             ROUND(AVG(price_usd), 6)            AS avg_price,
-            
+
             -- Volume stats
             ROUND(AVG(volume_24h_usd), 2)       AS avg_daily_volume,
             ROUND(MAX(volume_24h_usd), 2)       AS max_daily_volume,
-            
-            -- Market cap (último valor conocido)
+
+            -- Market cap (latest known value)
             ROUND(MAX(market_cap_usd), 2)       AS max_market_cap,
-            
-            -- Rango de precio (volatilidad histórica simplificada)
+
+            -- Historical price range (simplified volatility)
             ROUND(
                 ((MAX(price_usd) - MIN(price_usd)) / MIN(price_usd)) * 100,
                 2
             )                                   AS price_range_pct,
-            
+
             current_timestamp()                 AS _loaded_at
-            
+
         FROM cryptolake.silver.daily_prices
         GROUP BY coin_id
     """)
 
     count = spark.table("cryptolake.gold.dim_coins").count()
-    print(f"  ✅ dim_coins: {count} coins")
+    print(f"  dim_coins: {count} coins")
 
 
 def build_dim_dates(spark: SparkSession):
-    """
-    Construye la dimensión dim_dates (calendario).
-
-    ¿Por qué una tabla de fechas?
-    Porque "2024-02-25" es solo un dato. Pero para análisis necesitas
-    saber: ¿es fin de semana? ¿qué trimestre? ¿qué mes?
-
-    En producción, esta tabla se carga una vez y cubre varios años.
-    Aquí la generamos dinámicamente desde las fechas que tenemos.
-    """
-    print("\n📅 Construyendo dim_dates...")
+    """Build dim_dates calendar dimension from observed dates."""
+    print("\nBuilding dim_dates...")
 
     spark.sql("""
         CREATE OR REPLACE TABLE cryptolake.gold.dim_dates
@@ -104,51 +84,35 @@ def build_dim_dates(spark: SparkSession):
             DAYOFWEEK(price_date)                   AS day_of_week,
             WEEKOFYEAR(price_date)                  AS week_of_year,
             QUARTER(price_date)                     AS quarter,
-            
-            -- Flags booleanos para análisis
+
             CASE
                 WHEN DAYOFWEEK(price_date) IN (1, 7)
                 THEN true ELSE false
             END                                     AS is_weekend,
-            
-            -- Nombres legibles
+
             DATE_FORMAT(price_date, 'EEEE')         AS day_name,
             DATE_FORMAT(price_date, 'MMMM')         AS month_name
-            
+
         FROM cryptolake.silver.daily_prices
         ORDER BY date_day
     """)
 
     count = spark.table("cryptolake.gold.dim_dates").count()
-    print(f"  ✅ dim_dates: {count} fechas")
+    print(f"  dim_dates: {count} dates")
 
 
 def build_fact_market_daily(spark: SparkSession):
+    """Build fact_market_daily with technical indicators and sentiment signals.
+
+    Window functions used:
+    - LAG(): previous day price for day-over-day change
+    - AVG() OVER (ROWS BETWEEN N PRECEDING AND CURRENT ROW): moving averages
+    - STDDEV() OVER (...): rolling volatility
+
+    All windows partitioned by coin_id, ordered by price_date.
     """
-    Construye la tabla de hechos fact_market_daily.
+    print("\nBuilding fact_market_daily...")
 
-    Esta es la tabla más importante y compleja del star schema.
-    Cada fila = 1 criptomoneda × 1 día, con todas las métricas.
-
-    Window Functions utilizadas:
-
-    LAG(): Accede a la fila anterior en la ventana.
-        Uso: obtener el precio del día anterior para calcular % cambio.
-
-    AVG() OVER (ROWS BETWEEN N PRECEDING AND CURRENT ROW):
-        Media móvil de los últimos N+1 días.
-        Uso: Moving Average 7d y 30d (indicadores técnicos clásicos).
-
-    STDDEV() OVER (...):
-        Desviación estándar sobre la ventana.
-        Uso: Volatilidad — cuánto varía el precio.
-
-    Todas las ventanas se particionan por coin_id y ordenan por price_date.
-    Esto significa que los cálculos son INDEPENDIENTES por cada moneda.
-    """
-    print("\n📊 Construyendo fact_market_daily...")
-
-    # Primero necesitamos leer Silver y registrar como vista temporal
     prices = spark.table("cryptolake.silver.daily_prices")
     fear_greed = spark.table("cryptolake.silver.fear_greed")
 
@@ -168,23 +132,15 @@ def build_fact_market_daily(spark: SparkSession):
                 p.price_usd,
                 p.market_cap_usd,
                 p.volume_24h_usd,
-                
-                -- ══════════════════════════════════════════════
-                -- PRICE CHANGE % (día sobre día)
-                -- ══════════════════════════════════════════════
-                -- LAG(price_usd, 1) devuelve el precio del día anterior.
-                -- Fórmula: ((precio_hoy - precio_ayer) / precio_ayer) × 100
+
+                -- Day-over-day price change %
                 ROUND(
                     (p.price_usd - LAG(p.price_usd, 1) OVER w_coin)
                     / LAG(p.price_usd, 1) OVER w_coin * 100,
                     4
                 ) AS price_change_pct_1d,
-                
-                -- ══════════════════════════════════════════════
-                -- MOVING AVERAGES (medias móviles)
-                -- ══════════════════════════════════════════════
-                -- MA7: Media de los últimos 7 días (6 anteriores + hoy)
-                -- Se usa como indicador de tendencia a corto plazo.
+
+                -- 7-day moving average (short-term trend)
                 ROUND(
                     AVG(p.price_usd) OVER (
                         PARTITION BY p.coin_id ORDER BY p.price_date
@@ -192,10 +148,8 @@ def build_fact_market_daily(spark: SparkSession):
                     ),
                     6
                 ) AS moving_avg_7d,
-                
-                -- MA30: Media de los últimos 30 días
-                -- Indicador de tendencia a medio plazo.
-                -- Cuando el precio cruza por encima de MA30 = señal alcista.
+
+                -- 30-day moving average (medium-term trend)
                 ROUND(
                     AVG(p.price_usd) OVER (
                         PARTITION BY p.coin_id ORDER BY p.price_date
@@ -203,13 +157,8 @@ def build_fact_market_daily(spark: SparkSession):
                     ),
                     6
                 ) AS moving_avg_30d,
-                
-                -- ══════════════════════════════════════════════
-                -- VOLATILIDAD (desviación estándar 7d)
-                -- ══════════════════════════════════════════════
-                -- Alta volatilidad = mucho riesgo/oportunidad.
-                -- Bitcoin típicamente: 2-5% diario.
-                -- Altcoins: 5-15% diario.
+
+                -- 7-day volatility (rolling standard deviation)
                 ROUND(
                     STDDEV(p.price_usd) OVER (
                         PARTITION BY p.coin_id ORDER BY p.price_date
@@ -217,10 +166,8 @@ def build_fact_market_daily(spark: SparkSession):
                     ),
                     6
                 ) AS volatility_7d,
-                
-                -- ══════════════════════════════════════════════
-                -- VOLUME TREND (media de volumen 7d)
-                -- ══════════════════════════════════════════════
+
+                -- 7-day average volume
                 ROUND(
                     AVG(p.volume_24h_usd) OVER (
                         PARTITION BY p.coin_id ORDER BY p.price_date
@@ -228,12 +175,12 @@ def build_fact_market_daily(spark: SparkSession):
                     ),
                     2
                 ) AS avg_volume_7d
-                
+
             FROM s_prices p
             WINDOW w_coin AS (PARTITION BY p.coin_id ORDER BY p.price_date)
         )
-        
-        -- JOIN con Fear & Greed y añadir señales
+
+        -- JOIN with Fear & Greed and add trading signals
         SELECT
             pm.coin_id,
             pm.price_date,
@@ -245,30 +192,18 @@ def build_fact_market_daily(spark: SparkSession):
             pm.moving_avg_30d,
             pm.volatility_7d,
             pm.avg_volume_7d,
-            
-            -- Fear & Greed del día
+
             fg.fear_greed_value,
             fg.classification AS market_sentiment,
-            
-            -- ══════════════════════════════════════════════
-            -- SEÑAL MA30
-            -- ══════════════════════════════════════════════
-            -- Si el precio está por encima de la media de 30 días,
-            -- la tendencia general es alcista. Si está por debajo,
-            -- es bajista. Es uno de los indicadores más básicos
-            -- pero más usados en trading.
+
+            -- MA30 trend signal
             CASE
                 WHEN pm.price_usd > pm.moving_avg_30d THEN 'ABOVE_MA30'
                 WHEN pm.price_usd < pm.moving_avg_30d THEN 'BELOW_MA30'
                 ELSE 'AT_MA30'
             END AS ma30_signal,
-            
-            -- ══════════════════════════════════════════════
-            -- SEÑAL COMBINADA (precio + sentimiento)
-            -- ══════════════════════════════════════════════
-            -- Combina el indicador técnico (MA30) con el sentimiento
-            -- del mercado. "Extreme Fear + BELOW_MA30" podría ser
-            -- oportunidad de compra según la filosofía contrarian.
+
+            -- Combined signal (technical + sentiment, contrarian approach)
             CASE
                 WHEN pm.price_usd < pm.moving_avg_30d
                      AND fg.fear_greed_value < 25
@@ -278,21 +213,21 @@ def build_fact_market_daily(spark: SparkSession):
                 THEN 'POTENTIAL_SELL'
                 ELSE 'HOLD'
             END AS combined_signal,
-            
+
             current_timestamp() AS _loaded_at
-            
+
         FROM price_metrics pm
         LEFT JOIN s_fear_greed fg
             ON pm.price_date = fg.index_date
     """)
 
     count = spark.table("cryptolake.gold.fact_market_daily").count()
-    print(f"  ✅ fact_market_daily: {count} registros")
+    print(f"  fact_market_daily: {count} records")
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 CryptoLake — Silver to Gold (Star Schema)")
+    print("CryptoLake -- Silver to Gold (Star Schema)")
     print("=" * 60)
 
     spark = SparkSession.builder.appName("CryptoLake-SilverToGold").getOrCreate()
@@ -304,15 +239,12 @@ if __name__ == "__main__":
         build_dim_dates(spark)
         build_fact_market_daily(spark)
 
-        # ════════════════════════════════════════════════════════
-        # VERIFICACIÓN DEL STAR SCHEMA
-        # ════════════════════════════════════════════════════════
+        # -- Star schema verification -----------------------
         print("\n" + "=" * 60)
-        print("📋 VERIFICACIÓN GOLD — Star Schema")
+        print("GOLD VERIFICATION -- Star Schema")
         print("=" * 60)
 
-        # dim_coins
-        print("\n── dim_coins ──")
+        print("\n-- dim_coins --")
         spark.sql("""
             SELECT coin_id, total_days_tracked,
                    all_time_low, all_time_high, price_range_pct
@@ -320,8 +252,7 @@ if __name__ == "__main__":
             ORDER BY price_range_pct DESC
         """).show(truncate=False)
 
-        # dim_dates sample
-        print("── dim_dates (muestra) ──")
+        print("-- dim_dates (sample) --")
         spark.sql("""
             SELECT date_day, day_name, month_name, quarter, is_weekend
             FROM cryptolake.gold.dim_dates
@@ -329,10 +260,9 @@ if __name__ == "__main__":
             LIMIT 5
         """).show(truncate=False)
 
-        # fact_market_daily — query analítica de ejemplo
-        print("── fact_market_daily: Bitcoin últimos 7 días ──")
+        print("-- fact_market_daily: Bitcoin last 7 days --")
         spark.sql("""
-            SELECT price_date, 
+            SELECT price_date,
                    ROUND(price_usd, 2) as price,
                    price_change_pct_1d as change_pct,
                    ROUND(moving_avg_7d, 2) as ma7,
@@ -346,8 +276,7 @@ if __name__ == "__main__":
             LIMIT 7
         """).show(truncate=False)
 
-        # Query analítica avanzada: ¿Qué coins tienen señal de compra?
-        print("── Señales de compra potenciales (últimos datos) ──")
+        print("-- Potential buy signals (latest data) --")
         spark.sql("""
             WITH latest AS (
                 SELECT *, ROW_NUMBER() OVER (
@@ -369,4 +298,4 @@ if __name__ == "__main__":
     finally:
         spark.stop()
 
-    print("\n✅ Gold (Star Schema) completado!")
+    print("\nGold (Star Schema) completed.")
