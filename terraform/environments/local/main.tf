@@ -1,13 +1,13 @@
 # ============================================================
 # CryptoLake — Local Environment
 # ============================================================
-# En local, la infraestructura se gestiona con Docker Compose.
-# MinIO simula S3, no necesita Terraform.
+# In local development, infrastructure is managed by Docker Compose.
+# MinIO provides S3-compatible storage without Terraform.
 #
-# Este archivo existe como documentación y para demostrar que
-# la estructura de Terraform soporta múltiples entornos.
+# This file exists to document the multi-environment structure
+# and demonstrate that Terraform supports environment parity.
 #
-# Buckets locales (creados por minio-init en docker-compose):
+# Local buckets (created by minio-init in docker-compose):
 #   - cryptolake-bronze
 #   - cryptolake-silver
 #   - cryptolake-gold
