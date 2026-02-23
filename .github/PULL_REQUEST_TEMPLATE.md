@@ -12,9 +12,9 @@ Brief description of the changes.
 
 ## Checklist
 
-- [ ] Code follows project style (ruff check passes)
+- [ ] Code follows project style (`ruff check` passes)
 - [ ] Self-review completed
 - [ ] Docstrings added/updated
 - [ ] Tests added/updated
-- [ ] dbt compile passes
+- [ ] `dbt compile` passes
 - [ ] Docker images build successfully
