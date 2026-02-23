@@ -1,9 +1,10 @@
 """
-Ejecutor de quality checks — CryptoLake Fase 7.
+Data quality check runner.
 
-spark-submit src/quality/run_quality_checks.py
-spark-submit src/quality/run_quality_checks.py --layer bronze
-spark-submit src/quality/run_quality_checks.py --layer silver --layer gold
+Usage:
+    spark-submit src/quality/run_quality_checks.py
+    spark-submit src/quality/run_quality_checks.py --layer bronze
+    spark-submit src/quality/run_quality_checks.py --layer silver --layer gold
 """
 
 import argparse
@@ -50,18 +51,18 @@ RESULTS_SCHEMA = StructType(
 
 
 def persist_results(spark, results, run_id):
-    """Guarda los resultados en cryptolake.quality.check_results."""
+    """Save results to cryptolake.quality.check_results."""
     rows = [dict(**r.to_dict(), run_id=run_id) for r in results]
     df = spark.createDataFrame(rows, schema=RESULTS_SCHEMA)
     spark.sql("CREATE NAMESPACE IF NOT EXISTS cryptolake.quality")
     df.writeTo(RESULTS_TABLE).using("iceberg").createOrReplace()
-    logger.info(f"📊 {len(rows)} results saved to {RESULTS_TABLE}")
+    logger.info(f"{len(rows)} results saved to {RESULTS_TABLE}")
 
 
 def print_summary(results):
-    """Imprime resumen y devuelve True si todo pasa."""
+    """Print summary and return True if all checks pass."""
     print("\n" + "=" * 60)
-    print("📋 DATA QUALITY SUMMARY — CryptoLake")
+    print("DATA QUALITY SUMMARY -- CryptoLake")
     print("=" * 60)
 
     by_layer = {}
@@ -78,22 +79,22 @@ def print_summary(results):
         w = sum(1 for c in checks if c.status == CheckStatus.WARNING)
         if f > 0:
             has_failures = True
-        print(f"\n  🔷 {layer.upper()} ({len(checks)} checks)")
-        print(f"     ✅ {p}  ❌ {f}  ⚠️ {w}")
+        print(f"\n  {layer.upper()} ({len(checks)} checks)")
+        print(f"     Passed: {p}  Failed: {f}  Warnings: {w}")
         for c in checks:
             if c.status != CheckStatus.PASSED:
-                icons = {"failed": "❌", "warning": "⚠️", "error": "💥"}
+                markers = {"failed": "[-]", "warning": "[!]", "error": "[X]"}
                 short = c.table_name.split(".")[-1]
                 print(
-                    f"     {icons.get(c.status.value, '?')} {c.check_name} ({short}): {c.message}"
+                    f"     {markers.get(c.status.value, '?')} {c.check_name} ({short}): {c.message}"
                 )
 
     total = len(results)
     ok = sum(1 for r in results if r.status == CheckStatus.PASSED)
     rate = round(ok / total * 100, 1) if total > 0 else 0
-    emoji = "✅" if not has_failures else "❌"
+    marker = "[+]" if not has_failures else "[-]"
     print(f"\n{'=' * 60}")
-    print(f"  {emoji} Pass rate: {rate}% ({ok}/{total})")
+    print(f"  {marker} Pass rate: {rate}% ({ok}/{total})")
     print(f"{'=' * 60}\n")
     return not has_failures
 
@@ -110,7 +111,7 @@ def main():
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     all_results = []
 
-    logger.info(f"🔍 Quality checks (run_id={run_id}, layers={layers})")
+    logger.info(f"Quality checks (run_id={run_id}, layers={layers})")
 
     if "bronze" in layers:
         all_results.extend(BronzeValidator(spark).check_all())
@@ -122,7 +123,7 @@ def main():
     try:
         persist_results(spark, all_results, run_id)
     except Exception as e:
-        logger.warning(f"⚠️ Could not persist results: {e}")
+        logger.warning(f"Could not persist results: {e}")
 
     ok = print_summary(all_results)
     spark.stop()
