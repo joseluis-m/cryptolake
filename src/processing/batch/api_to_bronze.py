@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 """
-Spark Batch Job: APIs → Iceberg Bronze
+Spark Batch Job: APIs -> Iceberg Bronze
 
-Extrae datos de CoinGecko y Fear & Greed Index, y los carga
-en tablas Iceberg en la capa Bronze del Lakehouse.
+Extracts data from CoinGecko and Fear & Greed Index APIs,
+then loads it into Iceberg tables in the Bronze layer.
 
-Bronze = datos crudos, sin transformar, append-only.
-Guardamos todo tal cual llega para tener la "fuente de verdad" original.
+Bronze = raw, untransformed, append-only data.
+Everything is stored as-is to preserve the original source of truth.
 
-Ejecución:
+Usage:
     docker exec cryptolake-spark-master \
         /opt/spark/bin/spark-submit /opt/spark/work/src/processing/batch/api_to_bronze.py
 """
+
 import time
 from datetime import datetime, timezone
 
@@ -29,34 +30,31 @@ from pyspark.sql.types import (
 )
 
 # ================================================================
-# CONFIGURACIÓN
+# CONFIGURATION
 # ================================================================
-# Definimos todo aquí para que el script sea autocontenido.
-# En producción usarías variables de entorno o un config service.
 
 COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
 FEAR_GREED_URL = "https://api.alternative.me/fng/"
 DAYS_TO_EXTRACT = 90
 
+# Canonical list of tracked coins (CoinGecko IDs).
+# Must match TRACKED_COINS in .env.example and settings.py.
 TRACKED_COINS = [
     "bitcoin",
     "ethereum",
     "solana",
-    "cardano",
-    "polkadot",
+    "hyperliquid",
     "chainlink",
-    "avalanche-2",
-    "polygon-ecosystem-token",
+    "uniswap",
+    "aave",
+    "bittensor",
+    "ondo",
 ]
 
 
 # ================================================================
 # SCHEMAS
 # ================================================================
-# StructType define la estructura de un DataFrame, como una CREATE TABLE.
-# Es obligatorio definir schemas explícitos en data engineering — nunca
-# dejes que Spark "infiera" el schema porque puede equivocarse y además
-# no documentas qué esperas recibir.
 
 BRONZE_HISTORICAL_SCHEMA = StructType(
     [
@@ -82,15 +80,12 @@ BRONZE_FEAR_GREED_SCHEMA = StructType(
 
 
 # ================================================================
-# FUNCIONES DE EXTRACCIÓN
+# EXTRACTION FUNCTIONS
 # ================================================================
 
 
 def extract_coingecko(days: int = 90) -> list[dict]:
-    """
-    Extrae precios históricos de CoinGecko.
-    Incluye retry con backoff exponencial para manejar rate limits.
-    """
+    """Extract historical prices from CoinGecko with retry and backoff."""
     session = requests.Session()
     session.headers.update({"User-Agent": "CryptoLake/1.0"})
 
@@ -99,7 +94,7 @@ def extract_coingecko(days: int = 90) -> list[dict]:
 
     for i, coin_id in enumerate(TRACKED_COINS):
         try:
-            print(f"  📥 Extrayendo {coin_id} ({i + 1}/{len(TRACKED_COINS)})...")
+            print(f"  Extracting {coin_id} ({i + 1}/{len(TRACKED_COINS)})...")
 
             max_retries = 3
             response = None
@@ -118,7 +113,7 @@ def extract_coingecko(days: int = 90) -> list[dict]:
                 if response.status_code == 429:
                     if attempt < max_retries:
                         wait = 30 * (2**attempt)
-                        print(f"  ⏳ Rate limited, esperando {wait}s (intento {attempt + 1})...")
+                        print(f"  Rate limited, waiting {wait}s (attempt {attempt + 1})...")
                         time.sleep(wait)
                     else:
                         response.raise_for_status()
@@ -154,25 +149,26 @@ def extract_coingecko(days: int = 90) -> list[dict]:
                         }
                     )
 
-            print(f"  ✅ {coin_id}: {len(prices)} datapoints")
+            print(f"  {coin_id}: {len(prices)} datapoints OK")
 
+            # Rate limit: CoinGecko free tier allows ~10 req/min
             if i < len(TRACKED_COINS) - 1:
                 time.sleep(6)
 
         except Exception as e:
-            print(f"  ❌ {coin_id} falló: {e}")
+            print(f"  {coin_id} failed: {e}")
             continue
 
     return all_records
 
 
 def extract_fear_greed(days: int = 90) -> list[dict]:
-    """Extrae el Fear & Greed Index histórico."""
+    """Extract historical Fear & Greed Index."""
     session = requests.Session()
     session.headers.update({"User-Agent": "CryptoLake/1.0"})
     now = datetime.now(timezone.utc).isoformat()
 
-    print(f"  📥 Extrayendo Fear & Greed Index ({days} días)...")
+    print(f"  Extracting Fear & Greed Index ({days} days)...")
 
     response = session.get(
         FEAR_GREED_URL,
@@ -196,27 +192,18 @@ def extract_fear_greed(days: int = 90) -> list[dict]:
                 }
             )
 
-    print(f"  ✅ Fear & Greed: {len(records)} datapoints")
+    print(f"  Fear & Greed: {len(records)} datapoints OK")
     return records
 
 
 # ================================================================
-# FUNCIONES DE CARGA A ICEBERG
+# LOAD FUNCTIONS
 # ================================================================
 
 
 def create_bronze_tables(spark: SparkSession):
-    """
-    Crea las tablas Iceberg en Bronze si no existen.
-
-    USING iceberg: Le dice a Spark que use el formato Iceberg.
-    PARTITIONED BY: Organiza los archivos Parquet por coin_id.
-        Esto acelera las queries que filtran por coin (que serán la mayoría).
-    TBLPROPERTIES: Configuración de la tabla Iceberg:
-        - write.format.default = parquet: Formato de archivos subyacente
-        - write.parquet.compression-codec = zstd: Compresión moderna y eficiente
-    """
-    print("\n🏗️  Creando tablas Bronze (si no existen)...")
+    """Create Iceberg Bronze tables if they don't exist."""
+    print("\nCreating Bronze tables (if not exist)...")
 
     spark.sql("CREATE NAMESPACE IF NOT EXISTS cryptolake.bronze LOCATION 's3://cryptolake-bronze/'")
     spark.sql("""
@@ -238,7 +225,7 @@ def create_bronze_tables(spark: SparkSession):
             'write.parquet.compression-codec' = 'zstd'
         )
     """)
-    print("  ✅ cryptolake.bronze.historical_prices")
+    print("  cryptolake.bronze.historical_prices OK")
 
     spark.sql("""
         CREATE TABLE IF NOT EXISTS cryptolake.bronze.fear_greed (
@@ -256,46 +243,31 @@ def create_bronze_tables(spark: SparkSession):
             'write.parquet.compression-codec' = 'zstd'
         )
     """)
-    print("  ✅ cryptolake.bronze.fear_greed")
+    print("  cryptolake.bronze.fear_greed OK")
 
 
 def load_to_bronze(spark: SparkSession):
-    """
-    Extrae datos de las APIs y los carga en Iceberg Bronze.
-
-    Flujo por tabla:
-    1. Extraer datos de la API → lista de dicts
-    2. Convertir a Spark DataFrame con schema tipado
-    3. Añadir _loaded_at (timestamp de carga en el Lakehouse)
-    4. Append a la tabla Iceberg (nunca sobrescribimos Bronze)
-    """
+    """Extract from APIs and append to Iceberg Bronze tables."""
     create_bronze_tables(spark)
 
-    # ── Precios históricos ──────────────────────────────────
-    print("\n📊 CARGANDO PRECIOS HISTÓRICOS")
+    # -- Historical prices ------------------------------------
+    print("\nLOADING HISTORICAL PRICES")
     print("=" * 50)
 
     price_records = extract_coingecko(days=DAYS_TO_EXTRACT)
 
     if price_records:
-        # Crear DataFrame con schema explícito
         prices_df = spark.createDataFrame(price_records, schema=BRONZE_HISTORICAL_SCHEMA)
-
-        # Añadir timestamp de carga (cuándo entró al Lakehouse)
         prices_df = prices_df.withColumn("_loaded_at", current_timestamp())
-
-        # Append a Bronze — NUNCA hacemos overwrite en Bronze.
-        # Bronze es append-only: cada ejecución añade datos nuevos.
-        # Si hay duplicados, los resolveremos en Silver.
         prices_df.writeTo("cryptolake.bronze.historical_prices").append()
 
         count = prices_df.count()
-        print(f"\n  ✅ {count} registros cargados en bronze.historical_prices")
+        print(f"\n  {count} records loaded into bronze.historical_prices")
     else:
-        print("  ⚠️  No se extrajeron precios")
+        print("  WARNING: No price records extracted")
 
-    # ── Fear & Greed Index ──────────────────────────────────
-    print("\n📊 CARGANDO FEAR & GREED INDEX")
+    # -- Fear & Greed Index -----------------------------------
+    print("\nLOADING FEAR & GREED INDEX")
     print("=" * 50)
 
     fg_records = extract_fear_greed(days=DAYS_TO_EXTRACT)
@@ -306,9 +278,9 @@ def load_to_bronze(spark: SparkSession):
         fg_df.writeTo("cryptolake.bronze.fear_greed").append()
 
         count = fg_df.count()
-        print(f"\n  ✅ {count} registros cargados en bronze.fear_greed")
+        print(f"\n  {count} records loaded into bronze.fear_greed")
     else:
-        print("  ⚠️  No se extrajeron datos de Fear & Greed")
+        print("  WARNING: No Fear & Greed records extracted")
 
 
 # ================================================================
@@ -317,31 +289,26 @@ def load_to_bronze(spark: SparkSession):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 CryptoLake — API to Bronze")
+    print("CryptoLake -- API to Bronze")
     print("=" * 60)
 
-    # Crear SparkSession
-    # SparkSession es el punto de entrada a toda la funcionalidad de Spark.
-    # .appName() aparece en el Spark UI para identificar este job.
-    # Las configuraciones de Iceberg y S3 ya están en spark-defaults.conf
-    # (se cargan automáticamente), así que no necesitamos repetirlas aquí.
     spark = SparkSession.builder.appName("CryptoLake-APIToBronze").getOrCreate()
 
     try:
         load_to_bronze(spark)
 
-        # ── Verificación ─────────────────────────────────────
+        # -- Verification ------------------------------------
         print("\n" + "=" * 60)
-        print("📋 VERIFICACIÓN")
+        print("VERIFICATION")
         print("=" * 60)
 
         print("\n  bronze.historical_prices:")
         spark.sql("""
-            SELECT coin_id, COUNT(*) as records, 
+            SELECT coin_id, COUNT(*) as records,
                    ROUND(MIN(price_usd), 2) as min_price,
                    ROUND(MAX(price_usd), 2) as max_price
-            FROM cryptolake.bronze.historical_prices 
-            GROUP BY coin_id 
+            FROM cryptolake.bronze.historical_prices
+            GROUP BY coin_id
             ORDER BY coin_id
         """).show(truncate=False)
 
@@ -353,8 +320,7 @@ if __name__ == "__main__":
             ORDER BY days DESC
         """).show(truncate=False)
 
-        # Verificar time travel de Iceberg (una de sus superpoderes)
-        print("  📸 Snapshots de Iceberg (historial de versiones):")
+        print("  Iceberg snapshots (version history):")
         spark.sql("""
             SELECT snapshot_id, committed_at, operation
             FROM cryptolake.bronze.historical_prices.snapshots
@@ -363,4 +329,4 @@ if __name__ == "__main__":
     finally:
         spark.stop()
 
-    print("\n✅ Bronze load completado!")
+    print("\nBronze load completed.")
