@@ -85,7 +85,8 @@ class BaseValidator:
         markers = {"passed": "[+]", "failed": "[-]", "warning": "[!]", "error": "[X]"}
         marker = markers.get(result.status.value, "[?]")
         logger.info(
-            f"{marker} [{result.layer}] {result.check_name} on {result.table_name}: {result.message}"
+            f"{marker} [{result.layer}] {result.check_name}"
+            f" on {result.table_name}: {result.message}"
         )
 
     def _exists(self, table: str) -> bool:
