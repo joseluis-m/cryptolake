@@ -1,8 +1,9 @@
 # ============================================================
 # CryptoLake — AWS Environment
 # ============================================================
-# Despliega el storage layer en AWS S3.
-# Ejecutar:
+# Deploys the storage layer on AWS S3.
+#
+# Usage:
 #   cd terraform/environments/aws
 #   terraform init
 #   terraform plan
@@ -19,7 +20,7 @@ terraform {
     }
   }
 
-  # En producción: backend remoto en S3
+  # For production: use remote backend in S3
   # backend "s3" {
   #   bucket = "cryptolake-terraform-state"
   #   key    = "aws/terraform.tfstate"
@@ -41,14 +42,14 @@ variable "environment" {
   default = "staging"
 }
 
-# ── Módulo de Storage ───────────────────────────────────────
+# -- Storage Module ------------------------------------------
 
 module "storage" {
   source      = "../../modules/storage"
   environment = var.environment
 }
 
-# ── Outputs ─────────────────────────────────────────────────
+# -- Outputs -------------------------------------------------
 
 output "bronze_bucket" {
   value = module.storage.bronze_bucket_name
