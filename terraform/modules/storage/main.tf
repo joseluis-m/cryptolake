@@ -1,9 +1,8 @@
 # ============================================================
-# Módulo: storage
+# CryptoLake — Storage Module
 # ============================================================
-# Crea los buckets S3 para el Lakehouse (Bronze, Silver, Gold).
-# En local usamos MinIO (S3-compatible).
-# En AWS, se crean buckets S3 reales.
+# Creates S3 buckets for the Lakehouse layers (Bronze, Silver, Gold).
+# Includes lifecycle policies and versioning for data protection.
 # ============================================================
 
 variable "environment" {
@@ -16,7 +15,7 @@ variable "project_name" {
   default = "cryptolake"
 }
 
-# ── S3 Buckets ──────────────────────────────────────────────
+# -- S3 Buckets ----------------------------------------------
 
 resource "aws_s3_bucket" "bronze" {
   bucket = "${var.project_name}-${var.environment}-bronze"
@@ -48,7 +47,7 @@ resource "aws_s3_bucket" "gold" {
   }
 }
 
-# ── Lifecycle: archivar Bronze viejo a Glacier ──────────────
+# -- Lifecycle: archive old Bronze data to Glacier -----------
 
 resource "aws_s3_bucket_lifecycle_configuration" "bronze_lifecycle" {
   bucket = aws_s3_bucket.bronze.id
@@ -64,7 +63,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "bronze_lifecycle" {
   }
 }
 
-# ── Versionado: proteger datos raw en Bronze ────────────────
+# -- Versioning: protect raw data in Bronze ------------------
 
 resource "aws_s3_bucket_versioning" "bronze_versioning" {
   bucket = aws_s3_bucket.bronze.id
@@ -74,7 +73,7 @@ resource "aws_s3_bucket_versioning" "bronze_versioning" {
   }
 }
 
-# ── Outputs ─────────────────────────────────────────────────
+# -- Outputs -------------------------------------------------
 
 output "bronze_bucket_name" {
   value = aws_s3_bucket.bronze.id
