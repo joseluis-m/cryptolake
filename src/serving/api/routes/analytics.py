@@ -1,6 +1,4 @@
-"""
-Endpoints analíticos — market overview, fear & greed, coins.
-"""
+"""Analytics endpoints: market overview, fear & greed, coins."""
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -16,9 +14,11 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 @router.get("/market-overview", response_model=MarketOverview)
 async def get_market_overview():
-    """Resumen general del mercado crypto."""
+    """Aggregated market summary across all tracked coins."""
     try:
-        coins = execute_query("SELECT COUNT(*) AS cnt FROM cryptolake.gold.dim_coins")
+        coins = execute_query(
+            "SELECT COUNT(*) AS cnt FROM cryptolake.gold.dim_coins"
+        )
         facts = execute_query("""
             SELECT COUNT(*) AS cnt,
                    MIN(price_date) AS min_d,
@@ -45,7 +45,7 @@ async def get_market_overview():
 
 @router.get("/coins", response_model=list[CoinResponse])
 async def get_coins():
-    """Lista todas las criptomonedas con estadísticas."""
+    """List all tracked cryptocurrencies with aggregate statistics."""
     try:
         rows = execute_query("""
             SELECT coin_id, first_tracked_date, last_tracked_date,
@@ -63,7 +63,7 @@ async def get_coins():
 async def get_fear_greed(
     limit: int = Query(default=30, le=365),
 ):
-    """Histórico del Fear & Greed Index."""
+    """Historical Fear & Greed Index values."""
     try:
         rows = execute_query(f"""
             SELECT index_date, fear_greed_value, classification
