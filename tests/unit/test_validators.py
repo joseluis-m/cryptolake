@@ -1,15 +1,14 @@
-"""Tests unitarios para el módulo de quality (sin dependencia de PySpark)."""
+"""Unit tests for the quality module (no PySpark dependency)."""
 
 
 def test_check_status_values():
-    """CheckStatus tiene los valores esperados."""
-    # Testeamos los valores directamente sin importar PySpark
+    """CheckStatus has the expected values."""
     expected = {"passed", "failed", "warning", "error"}
     assert expected == {"passed", "failed", "warning", "error"}
 
 
 def test_check_result_structure():
-    """Verificamos que la estructura de un check result es correcta."""
+    """Check result dict has the correct structure."""
     result = {
         "check_name": "test_check",
         "layer": "bronze",
@@ -26,7 +25,7 @@ def test_check_result_structure():
 
 
 def test_check_result_failed():
-    """Un check fallido tiene metric_value por encima del threshold."""
+    """A failed check has metric_value above the threshold."""
     result = {
         "check_name": "no_duplicates",
         "layer": "silver",
